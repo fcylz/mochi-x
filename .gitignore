@@ -1,0 +1,13 @@
+node_modules/
+*.log
+tmp-*
+.DS_Store
+Thumbs.db
+icon-backup-20260918/
+# 本地 IDE / 索引数据，不进仓库
+.codebuddy/
+.codegraph/
+.zcodeignore
+# tools/ 里是几百个本地校验脚本，与线上运行无关；只保留云端同步相关文档与脚本
+tools/*
+!tools/cloud-sync/
