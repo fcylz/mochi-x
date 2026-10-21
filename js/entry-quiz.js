@@ -45,8 +45,7 @@ try {
 const raw = gGet(K_PASS);
 if (!raw || String(raw).charAt(0) !== '{') return false;
 const o = JSON.parse(raw);
-if (!o || typeof o.v !== 'string' || !o.v) return false;
-return quizVerCmp(o.v, QUIZ_VER) >= 0;
+return !!(o && o.t);
 } catch (e) { return false; }
 }
 function markPassed() { gSet(K_PASS, JSON.stringify({ t: Date.now(), v: QUIZ_VER })); }

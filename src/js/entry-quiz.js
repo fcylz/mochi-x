@@ -53,15 +53,14 @@
     if (ta === tb) return 0;
     return ta > tb ? 1 : -1;
   }
-  // 本机已通过本版问卷？（记录版本 ≥ 本页版本即放行，#1572）
+  // 本机已通过问卷？（只要答对过一次就永久放行，不再校验问卷版本）
   function passed() {
     if (IS_AUTOMATION) return true;
     try {
       const raw = gGet(K_PASS);
       if (!raw || String(raw).charAt(0) !== '{') return false;
       const o = JSON.parse(raw);
-      if (!o || typeof o.v !== 'string' || !o.v) return false;
-      return quizVerCmp(o.v, QUIZ_VER) >= 0;
+      return !!(o && o.t);
     } catch (e) { return false; }
   }
   function markPassed() { gSet(K_PASS, JSON.stringify({ t: Date.now(), v: QUIZ_VER })); }

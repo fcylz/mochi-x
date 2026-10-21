@@ -280,7 +280,7 @@ try {
 const raw = localStorage.getItem(AGE_KEY);
 let obj = null;
 try { obj = raw && raw.charAt(0) === '{' ? JSON.parse(raw) : null; } catch (e2) {}
-ageOk = !!(obj && obj.v === AGE_VER);
+ageOk = !!obj;
 } catch (e) {}
 const ageRow = document.getElementById('splash-age-row');
 const ageCheck = document.getElementById('splash-age-check');
@@ -396,6 +396,22 @@ try { window.hydrateLibScopes(['own']).catch(function () {}); } catch (e) {}
 } catch (e) {}
 try { if (window.mochiContactEntryFlow) window.mochiContactEntryFlow(); } catch (e) {}
 }
+(function autoSkipIfConfirmed() {
+if (!ageOk) return;
+let tries = 0;
+const timer = setInterval(function () {
+tries++;
+if (!splash || splash.classList.contains('hide')) { clearInterval(timer); return; }
+let quizPassed = false;
+try { quizPassed = !!(window.mochiEntryQuizPassed && window.mochiEntryQuizPassed()); } catch (e) {}
+if (quizPassed && ready() && loaded()) {
+clearInterval(timer);
+try { finishEnter(); } catch (e) { try { hide(); } catch (e2) {} }
+return;
+}
+if (tries > 200) clearInterval(timer);
+}, 300);
+})();
 let scrolledBottom = false;
 function checkScrolled() {
 let bottom = true;

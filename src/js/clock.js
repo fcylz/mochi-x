@@ -388,7 +388,8 @@
     const raw = localStorage.getItem(AGE_KEY);
     let obj = null;
     try { obj = raw && raw.charAt(0) === '{' ? JSON.parse(raw) : null; } catch (e2) {}
-    ageOk = !!(obj && obj.v === AGE_VER);
+    // 只要确认过一次就永久有效：不再比对 AGE_VER，声明改版也不要求重新勾选
+    ageOk = !!obj;
   } catch (e) {}
   const ageRow = document.getElementById('splash-age-row');
   const ageCheck = document.getElementById('splash-age-check');
@@ -550,6 +551,26 @@
     // 放在数据已就绪的进入收尾处；缺失或异常都不阻断进入。
     try { if (window.mochiContactEntryFlow) window.mochiContactEntryFlow(); } catch (e) {}
   }
+  // 只要确认过声明且通过过问卷，就直接跳过整个开屏页：
+  // 不再要求滑到底、不再点「我已阅读并知晓」、不再过二级必读层。
+  // 首次使用（无记录）不受影响；声明/问卷改版后也不再要求重新确认。
+  (function autoSkipIfConfirmed() {
+    if (!ageOk) return;
+    let tries = 0;
+    const timer = setInterval(function () {
+      tries++;
+      if (!splash || splash.classList.contains('hide')) { clearInterval(timer); return; }
+      let quizPassed = false;
+      try { quizPassed = !!(window.mochiEntryQuizPassed && window.mochiEntryQuizPassed()); } catch (e) {}
+      if (quizPassed && ready() && loaded()) {
+        clearInterval(timer);
+        try { finishEnter(); } catch (e) { try { hide(); } catch (e2) {} }
+        return;
+      }
+      // 约 60 秒仍未就绪：放弃自动跳过，回退到正常开屏流程，避免卡死
+      if (tries > 200) clearInterval(timer);
+    }, 300);
+  })();
   let scrolledBottom = false;
   function checkScrolled() {
     let bottom = true;
