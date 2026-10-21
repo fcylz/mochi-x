@@ -54,13 +54,18 @@
     return ta > tb ? 1 : -1;
   }
   // 本机已通过问卷？（只要答对过一次就永久放行，不再校验问卷版本）
+  // 兼容旧记录：裸 '1' 与缺 t 的 JSON（早期只存 v）同样算答过——否则老用户会被要求重答一次，
+  // 与「确认一次永久有效」相悖。判定口径必须与模板 head 里 splash-skip 的判断保持一致。
   function passed() {
     if (IS_AUTOMATION) return true;
     try {
       const raw = gGet(K_PASS);
-      if (!raw || String(raw).charAt(0) !== '{') return false;
-      const o = JSON.parse(raw);
-      return !!(o && o.t);
+      if (!raw) return false;
+      const s = String(raw);
+      if (s === '1') return true;
+      if (s.charAt(0) !== '{') return false;
+      const o = JSON.parse(s);
+      return !!(o && (o.t || o.v));
     } catch (e) { return false; }
   }
   function markPassed() { gSet(K_PASS, JSON.stringify({ t: Date.now(), v: QUIZ_VER })); }

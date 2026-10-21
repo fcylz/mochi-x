@@ -280,7 +280,7 @@ try {
 const raw = localStorage.getItem(AGE_KEY);
 let obj = null;
 try { obj = raw && raw.charAt(0) === '{' ? JSON.parse(raw) : null; } catch (e2) {}
-ageOk = !!obj;
+ageOk = !!obj || raw === '1';
 } catch (e) {}
 const ageRow = document.getElementById('splash-age-row');
 const ageCheck = document.getElementById('splash-age-check');
@@ -365,18 +365,13 @@ document.addEventListener('mochi-restore-done', off);
 const closeBtn = document.getElementById('mochi-data-banner-close');
 if (closeBtn) closeBtn.addEventListener('click', function (e) { e.stopPropagation(); off(); });
 }
-function finishEnter() {
-if (splash.classList.contains('hide')) return;
-try {
-if (window.mochiEntryQuizGate && !window.mochiEntryQuizPassed()) {
-window.mochiEntryQuizGate(finishEnter);
-return;
-}
-} catch (e) {}
+var enteredTail = false;
+function enterTail() {
+if (enteredTail) return;
+enteredTail = true;
 if (!seenToday) {
 try { localStorage.setItem(seenKey, '1'); seenToday = true; } catch (e) {}
 }
-hide();
 if (!ready()) {
 try { showDataPendingBanner(); } catch (e) {}
 try {
@@ -396,21 +391,44 @@ try { window.hydrateLibScopes(['own']).catch(function () {}); } catch (e) {}
 } catch (e) {}
 try { if (window.mochiContactEntryFlow) window.mochiContactEntryFlow(); } catch (e) {}
 }
-(function autoSkipIfConfirmed() {
-if (!ageOk) return;
-let tries = 0;
-const timer = setInterval(function () {
-tries++;
-if (!splash || splash.classList.contains('hide')) { clearInterval(timer); return; }
-let quizPassed = false;
-try { quizPassed = !!(window.mochiEntryQuizPassed && window.mochiEntryQuizPassed()); } catch (e) {}
-if (quizPassed && ready() && loaded()) {
-clearInterval(timer);
-try { finishEnter(); } catch (e) { try { hide(); } catch (e2) {} }
+function finishEnter() {
+if (splash.classList.contains('hide')) return;
+try {
+if (window.mochiEntryQuizGate && !window.mochiEntryQuizPassed()) {
+window.mochiEntryQuizGate(finishEnter);
 return;
 }
+} catch (e) {}
+hide();
+enterTail();
+}
+(function autoSkipIfConfirmed() {
+if (!ageOk) return;
+const preHidden = document.documentElement.classList.contains('splash-skip');
+if (preHidden) { try { hide(); } catch (e) {} } // 双保险：head 脚本没打上标记时也不闪
+let tries = 0;
+const done = function () {
+clearInterval(timer);
+try { hide(); } catch (e) {}
+try { enterTail(); } catch (e) { try { hide(); } catch (e2) {} }
+};
+const timer = setInterval(function () {
+tries++;
+if (!splash || enteredTail) { clearInterval(timer); return; }
+let quizPassed = false;
+try { quizPassed = !!(window.mochiEntryQuizPassed && window.mochiEntryQuizPassed()); } catch (e) {}
+if (!quizPassed) {
+if (preHidden && tries > 5) document.documentElement.classList.remove('splash-skip');
 if (tries > 200) clearInterval(timer);
-}, 300);
+return;
+}
+if (preHidden) {
+if (ready() || readyForced || tries > 150) done();
+return;
+}
+if (ready() && loaded()) done();
+else if (tries > 200) clearInterval(timer);
+}, 200);
 })();
 let scrolledBottom = false;
 function checkScrolled() {

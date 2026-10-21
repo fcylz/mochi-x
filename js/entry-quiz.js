@@ -43,9 +43,12 @@ function passed() {
 if (IS_AUTOMATION) return true;
 try {
 const raw = gGet(K_PASS);
-if (!raw || String(raw).charAt(0) !== '{') return false;
-const o = JSON.parse(raw);
-return !!(o && o.t);
+if (!raw) return false;
+const s = String(raw);
+if (s === '1') return true;
+if (s.charAt(0) !== '{') return false;
+const o = JSON.parse(s);
+return !!(o && (o.t || o.v));
 } catch (e) { return false; }
 }
 function markPassed() { gSet(K_PASS, JSON.stringify({ t: Date.now(), v: QUIZ_VER })); }

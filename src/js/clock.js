@@ -388,8 +388,9 @@
     const raw = localStorage.getItem(AGE_KEY);
     let obj = null;
     try { obj = raw && raw.charAt(0) === '{' ? JSON.parse(raw) : null; } catch (e2) {}
-    // 只要确认过一次就永久有效：不再比对 AGE_VER，声明改版也不要求重新勾选
-    ageOk = !!obj;
+    // 只要确认过一次就永久有效：不再比对 AGE_VER，声明改版也不要求重新勾选。
+    // 兼容 #1475（2026-09-30）之前的裸 '1' 记录——那批用户同样算「确认过」，不再要求重勾一次。
+    ageOk = !!obj || raw === '1';
   } catch (e) {}
   const ageRow = document.getElementById('splash-age-row');
   const ageCheck = document.getElementById('splash-age-check');
@@ -500,20 +501,18 @@
     if (closeBtn) closeBtn.addEventListener('click', function (e) { e.stopPropagation(); off(); });
   }
   // 真正进入：隐藏开屏 + （数据未真就绪时）数据不全提示 / 字卡预加载——原 enter/forceEnter 的收尾逻辑收拢于此
-  function finishEnter() {
-    if (splash.classList.contains('hide')) return;
-    // #1550：开屏「点击进入」后先跳【入站问卷】整页（答对全部题目才放行，独立闸门、不用暗号跳过）。
-    //   模块缺失（老副本/未接入）时 try 兜住不阻断进入；通过后回调本函数继续收尾。
-    try {
-      if (window.mochiEntryQuizGate && !window.mochiEntryQuizPassed()) {
-        window.mochiEntryQuizGate(finishEnter);
-        return;
-      }
-    } catch (e) {}
+  // 用 var：下面 finishEnter 被更早定义的入口（未到等待的兜底按钮）调用时，
+  //   let 会落在暂时性死区里直接抛错，var 提升为 undefined（falsy）＝等同未进入。
+  var enteredTail = false;
+  // 进入收尾（开屏隐藏之后的全部动作）：正常点「进入」与「已确认自动跳过」共用，且只跑一次。
+  //   原先这段写在 finishEnter 里，开屏已被提前藏掉时 finishEnter 会因 hide 提前 return，
+  //   收尾动作（每日已读、预加载字卡、默认桌面入口）就全被跳过——拆出来才不会漏。
+  function enterTail() {
+    if (enteredTail) return;
+    enteredTail = true;
     if (!seenToday) {
       try { localStorage.setItem(seenKey, '1'); seenToday = true; } catch (e) {}
     }
-    hide();
     if (!ready()) {
       // v3.26.x #135：未真就绪但已硬放行（20s 保险丝）→ 弹「数据仍在加载」提示
       // （不静默进入，用户知情数据可能不全）
@@ -551,25 +550,59 @@
     // 放在数据已就绪的进入收尾处；缺失或异常都不阻断进入。
     try { if (window.mochiContactEntryFlow) window.mochiContactEntryFlow(); } catch (e) {}
   }
+  // 正常进入入口（点「我已阅读并知晓」/「仍要进入」）：先过问卷闸门，再藏开屏、跑收尾。
+  function finishEnter() {
+    if (splash.classList.contains('hide')) return;
+    // #1550：开屏「点击进入」后先跳【入站问卷】整页（答对全部题目才放行，独立闸门、不用暗号跳过）。
+    //   模块缺失（老副本/未接入）时 try 兜住不阻断进入；通过后回调本函数继续收尾。
+    try {
+      if (window.mochiEntryQuizGate && !window.mochiEntryQuizPassed()) {
+        window.mochiEntryQuizGate(finishEnter);
+        return;
+      }
+    } catch (e) {}
+    hide();
+    enterTail();
+  }
   // 只要确认过声明且通过过问卷，就直接跳过整个开屏页：
   // 不再要求滑到底、不再点「我已阅读并知晓」、不再过二级必读层。
   // 首次使用（无记录）不受影响；声明/问卷改版后也不再要求重新确认。
+  // 免闪：模板 head 已在首帧前按同样口径给 <html> 打了 splash-skip（CSS 直接藏开屏），
+  //   这里只负责「等到可以进入的时机再收尾」，不再负责何时把开屏藏起来。
   (function autoSkipIfConfirmed() {
     if (!ageOk) return;
+    const preHidden = document.documentElement.classList.contains('splash-skip');
+    if (preHidden) { try { hide(); } catch (e) {} } // 双保险：head 脚本没打上标记时也不闪
     let tries = 0;
+    const done = function () {
+      clearInterval(timer);
+      // hide() 幂等（已隐藏直接返回）：免闪路径早已藏过，非免闪路径靠这一句才收得掉开屏——
+      //   漏了它就会「桌面已经进去了、开屏还盖在上面」。
+      try { hide(); } catch (e) {}
+      try { enterTail(); } catch (e) { try { hide(); } catch (e2) {} }
+    };
     const timer = setInterval(function () {
       tries++;
-      if (!splash || splash.classList.contains('hide')) { clearInterval(timer); return; }
+      if (!splash || enteredTail) { clearInterval(timer); return; }
       let quizPassed = false;
       try { quizPassed = !!(window.mochiEntryQuizPassed && window.mochiEntryQuizPassed()); } catch (e) {}
-      if (quizPassed && ready() && loaded()) {
-        clearInterval(timer);
-        try { finishEnter(); } catch (e) { try { hide(); } catch (e2) {} }
+      if (!quizPassed) {
+        // 问卷记录读不出／模块还没就位：把开屏放回来走正常流程，绝不把页面留在空白态
+        if (preHidden && tries > 5) document.documentElement.classList.remove('splash-skip');
+        if (tries > 200) clearInterval(timer);
         return;
       }
-      // 约 60 秒仍未就绪：放弃自动跳过，回退到正常开屏流程，避免卡死
-      if (tries > 200) clearInterval(timer);
-    }, 300);
+      if (preHidden) {
+        // 开屏已在首帧前藏掉：数据就绪或 20 秒硬保险丝一到就收尾。
+        //   不再等 loaded()（整页 5.5MB 资源没下完不该挡进入），也不再 60 秒放弃——
+        //   开屏已被 CSS 藏掉，这里一放弃就等于把用户丢在空白页上。
+        if (ready() || readyForced || tries > 150) done();
+        return;
+      }
+      // 没走免闪路径（head 脚本没打标记）：保持原来的严格条件，超时放弃、回退正常开屏
+      if (ready() && loaded()) done();
+      else if (tries > 200) clearInterval(timer);
+    }, 200);
   })();
   let scrolledBottom = false;
   function checkScrolled() {

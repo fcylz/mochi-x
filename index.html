@@ -24,7 +24,20 @@
      脚本只认 dark、系统深色的 auto 用户会先白闪再由 personalize.js 纠正（FOUC）。
      另：旧版本残留的 data-theme 属性在此强制清掉，保证「选浅色」真回浅色。 -->
 <script>try{var _tm=localStorage.getItem('xy-home-v2:theme-mode');if(_tm==='dark'||(_tm!=='light'&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.setAttribute('data-theme','dark');else document.documentElement.removeAttribute('data-theme');}catch(e){}</script>
+<!-- 入场声明「确认一次永久有效」的免闪实现：声明与问卷两个本机记录都在，就在首帧前给 <html>
+     打 splash-skip，由下方 CSS 直接把开屏藏掉——否则 clock.js 要等数据就绪才 finishEnter，
+     那段时间开屏完整可见＝用户看到的「跳过前先闪一下」。
+     记录口径与 entry-quiz.js 的 passed() 完全一致：裸 '1'（旧版）与 JSON（有新无 t 都算）都放行；
+     任一记录读不出＝不打标记，走正常开屏（首次使用不受影响）。 -->
+<script>try{
+var _ac=localStorage.getItem('xy-home-v2:age-confirmed');
+var _qp=localStorage.getItem('xy-home-v2:entry-quiz-pass');
+function _seen(v){if(!v)return false;var s=String(v);if(s.charAt(0)==='1')return true;if(s.charAt(0)!=='{')return false;try{return !!JSON.parse(s);}catch(e){return false;}}
+if(_seen(_ac)&&_seen(_qp))document.documentElement.className+=' splash-skip';
+}catch(e){}</script>
 <style>
+/* 已确认过入场声明的用户：开屏在首帧前就藏掉（display 而非 visibility，彻底不参与绘制） */
+html.splash-skip #splash{display:none!important}
 * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 :root {
 color-scheme:only light;
@@ -11201,7 +11214,7 @@ font-size: 11.5px; color: var(--muted, #8a8a8a); cursor: pointer; touch-action: 
            （名称+版号 / 部署时间+实时秒 / 版本检测行）收成一行；检测行随 ver-check.js 退役删除。
            data-build-ts / data-version 两属性保留：device.js 诊断、bg-keep 自检、pwa.js 旧包检测
            仍只读属性（诊断版本号走 data-version 兜底，device.js 两处缓存原生支持）。 -->
-      <div class="splash-ver" id="splash-ver" data-build-ts="1792578555006" data-version="v8.0">
+      <div class="splash-ver" id="splash-ver" data-build-ts="1792579488164" data-version="v8.0">
         <span class="sv-app">Mochi 字卡传讯 已完结停更</span>
       </div>
       <!-- v3.5.120：数据（IndexedDB 回填）加载完成前不显示「点击进入」按钮，
@@ -22917,4 +22930,4 @@ window.__mochiBootRetry = function () { try { location.reload(); } catch (e) {} 
 <!-- __MOCHI_EOF__ -->
 </body>
 </html>
-<!-- __MOCHI_EOF__ mvhyzla6 -->
+<!-- __MOCHI_EOF__ mvhzjlb8 -->

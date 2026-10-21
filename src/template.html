@@ -24,7 +24,20 @@
      脚本只认 dark、系统深色的 auto 用户会先白闪再由 personalize.js 纠正（FOUC）。
      另：旧版本残留的 data-theme 属性在此强制清掉，保证「选浅色」真回浅色。 -->
 <script>try{var _tm=localStorage.getItem('xy-home-v2:theme-mode');if(_tm==='dark'||(_tm!=='light'&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.setAttribute('data-theme','dark');else document.documentElement.removeAttribute('data-theme');}catch(e){}</script>
+<!-- 入场声明「确认一次永久有效」的免闪实现：声明与问卷两个本机记录都在，就在首帧前给 <html>
+     打 splash-skip，由下方 CSS 直接把开屏藏掉——否则 clock.js 要等数据就绪才 finishEnter，
+     那段时间开屏完整可见＝用户看到的「跳过前先闪一下」。
+     记录口径与 entry-quiz.js 的 passed() 完全一致：裸 '1'（旧版）与 JSON（有新无 t 都算）都放行；
+     任一记录读不出＝不打标记，走正常开屏（首次使用不受影响）。 -->
+<script>try{
+var _ac=localStorage.getItem('xy-home-v2:age-confirmed');
+var _qp=localStorage.getItem('xy-home-v2:entry-quiz-pass');
+function _seen(v){if(!v)return false;var s=String(v);if(s.charAt(0)==='1')return true;if(s.charAt(0)!=='{')return false;try{return !!JSON.parse(s);}catch(e){return false;}}
+if(_seen(_ac)&&_seen(_qp))document.documentElement.className+=' splash-skip';
+}catch(e){}</script>
 <style>
+/* 已确认过入场声明的用户：开屏在首帧前就藏掉（display 而非 visibility，彻底不参与绘制） */
+html.splash-skip #splash{display:none!important}
 /*__STYLES__*/
 </style>
 </head>
