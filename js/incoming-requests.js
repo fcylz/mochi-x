@@ -9,7 +9,12 @@ const MAX = 20;                       // 队列上限，防膨胀
 const CHECK_MS = 60 * 1000;           // 轮询间隔
 const chatCoolMs = 3 * 60 * 60 * 1000; // 求聊天冷却（3 小时，比查岗久）
 const seenKeepMs = 24 * 60 * 60 * 1000; // seen 记录保留 24h 后清理
-const POKE_MSGS = ['在干嘛呢？', '忙完了吗？', '想我了没有？', '我来看看你。'];
+const POKE_MSGS = [
+'在干嘛',
+'忙完了没',
+'想过我没有',
+'过来看看你'
+];
 const SESSION_ID = 's' + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36);
 const PENDING_TTL_MS = 10 * 60 * 1000;
 const BUSY_ESCAPE = 3;                // 软互斥最多让路 3 轮（3 分钟），之后照投——防别的弹窗长期占屏变成新的永不触发

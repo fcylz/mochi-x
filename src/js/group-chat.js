@@ -4366,7 +4366,14 @@ if (defs && defs.type === 'text' && defs.text) t = defs.text;
   const gcPokeNameEl = document.getElementById('gc-poke-name');
   const gcPokeCloseBtn = document.getElementById('gc-poke-close');
   let gcPokeCid = null;
-  const GC_POKE_PRESETS = ['拍了拍你', '戳了戳你的脸蛋', '弹了一下你的额头', '揉了揉你的头发', '捏了捏你的脸颊', '拍了拍你的肩膀'];
+  const GC_POKE_PRESETS = [
+    '拍了拍你',
+    '戳了戳你的脸',
+    '弹了下你的额头',
+    '揉了揉你的头发',
+    '捏了捏你的脸',
+    '拍了拍你的肩'
+  ];
   // FIX 2026-09-17 #648g 拍一拍短语池媒体守卫（与 chat.js pokeTextOnly 同口径）——
   // 自建分组/字卡库【拍一拍】里混入的令牌/图链/||| 卡不进面板、不被发出
   function gcPokeTextOnly(x) {

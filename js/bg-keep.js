@@ -2132,13 +2132,13 @@ const PSYNC_QUEUE_KEY = 'xy-home-v2:psync-queue';
 const PSYNC_SNAP_TTL = 7 * 24 * 60 * 60 * 1000;
 const PSYNC_BUILTIN = [
 '刚看到一句话，想起你了。',
-'你在忙吗？我这边刚刚想到你。',
+'你在忙吗？我这边刚想到你。',
 '没什么事，就是想跟你说句话。',
-'今天也要好好吃饭呀。',
-'突然很想你，就说一声。',
-'记得喝水，别总忘了。',
-'晚安前跟你说一声，我在。',
-'有空的时候理理我呀。'
+'今天也要好好吃饭。',
+'突然很想你，说一声。',
+'记得喝水，别老忘。',
+'睡了，跟你说一声我在。',
+'有空理理我呀。'
 ];
 function psyncSupported() {
 try { return 'serviceWorker' in navigator && 'PeriodicSyncManager' in window; } catch (e) { return false; }

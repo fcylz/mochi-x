@@ -4061,12 +4061,12 @@ const reply = (window.pickAskCardReply ? window.pickAskCardReply(replies) : repl
 const fw = (rec.curiousFollowup && Math.random() < 0.3) ? rec.curiousFollowup : null;
 window.chatCuriousReply(idx, v, reply, fw);
 } else if (type === 'roast' && window.chatRoastReply) {
-const defs = ['你觉得我会信？', '少骗我。', '哼。', '好吧好吧。', '就这一次？', '行吧，放过你。', '嗯，这还差不多。'];
+const defs = ['这话你自己信？', '少来糊弄我。', '哼。', '算了算了。', '就这一回？', '行，这次不追究。', '嗯，勉强算你过关。'];
 const pool = window.getInteractPool ? window.getInteractPool('吐槽·回应', defs) : defs;
 const reply = (window.pickAskCardReply ? window.pickAskCardReply(pool) : pool[Math.floor(Math.random() * pool.length)]);
 window.chatRoastReply(idx, v, reply);
 } else if (type === 'ask' && window.chatAskReply) {
-const defs = ['收到你的回答。', '好呀，我知道了。', '你这么说，我记住了。'];
+const defs = ['嗯，知道了。', '行，我记下了。', '你这么说，我就懂了。'];
 const pool = window.getInteractPool ? window.getInteractPool('询问·回应', defs) : defs;
 // FIX 2026-09-17 #648 与吐槽/好奇分支同款走 pickAskCardReply（预设池媒体守卫）——
 // 原裸抽 pool[random] 会把功能池里混入的媒体卡原样发进 rec.askReply＝互动卡直出令牌串
@@ -8140,7 +8140,7 @@ retractMsg(target, side);
 // v3.26.x：字卡池为空的最终兜底——原单条硬编码「收到～」会让联系人在没有可用
 // 字卡时每条回复都一模一样（用户反馈联系人一直/重复发【收到~】）。改用一个小型
 // 通用池随机抽，避免机械复读；真实的根因仍要查该联系人的字卡库是否为 & 默认字卡开关。
-const FALLBACK_REPLY_POOL = ['收到～', '好呀', '好～', '嗯嗯', '知道啦', '好哒', '嗯嗯，我在听'];
+const FALLBACK_REPLY_POOL = ['嗯，收到', '行呀', '好啊', '嗯嗯', '知道了', '好嘞', '嗯，听着呢'];
 // FIX 2026-09-05 #185 空白字卡防空气泡：池里可能混入空串/纯空白/零宽字符字卡（导入包/手编），
 // 旧单抽 '' 有 || 兜底但 ' ' 这类 truthy 空白会直接发出；抽取时跳过空白，20 次抽不中回空串走上层兜底
 function pickNonBlank(arr) {
@@ -9069,9 +9069,9 @@ window.__asCatchupProbe = { fire: asForegroundCatchup, state: function () { retu
 //   逐句开关（dc-off-interact:<文案>）与整组停用都生效；下面三个数组只留作**数据缺失时的兜底**
 //   （同 v3.14.x 经期关心的做法，勿当数据源改）。取用一律走 presetReplyPick(分组名, 兜底)——
 //   ⚠ 必须在调用时取：本文件先于 default-cards.js 加载，模块初始化时窗口出口还不存在。
-const INVITE_DECLINE = ['下次吧，现在不太想玩~', '等会儿再陪你玩好不好', '先不玩啦，待会儿再说', '现在没状态，下次一定'];
-const CUDDLE_DECLINE = ['下次再贴吧，先记着这笔~', '等会儿补给你，说话算数', '先欠着，攒到晚上一起还~', '今天想先自己待会儿，明天加倍还你'];
-const CUDDLE_REPLIES = ['嗯……蹭到了。暖暖的，很喜欢。', '那我要贴很久哦，不许偷偷跑掉。', '手被握住了，就这样待一会儿。', '感觉到了，你在旁边。很安心。', '贴贴充电中……好，满格了。'];
+const INVITE_DECLINE = ['改天吧，这会儿不想动', '过会儿再陪你，行不行', '先不玩了，等会儿说', '现在没状态，下回一定'];
+const CUDDLE_DECLINE = ['改天再贴，先记着这笔', '等会儿补给你，说好了', '先欠着，晚上一起还', '今天想自己待会儿，明天双倍还'];
+const CUDDLE_REPLIES = ['嗯……靠过来了，暖的。', '那我要赖很久，别半路溜。', '手被攥住了，就这样待着。', '感觉到了，就在旁边。挺踏实。', '贴着充会儿电……行了，满了。'];
 // #1422：取一句该组现存的预设语。返回空串＝用户把这一组逐句关掉/整组停用（＝真停用），
 //   调用方必须「什么都不说」，不许回落兜底句、更不许抓别的组顶上。
 function presetReplyPick(group, fallback) {
@@ -11798,8 +11798,8 @@ const sameCid = () => (window.__activeCid || 'default') === myCid;
 // v3.26.x #489：回应内容在发送时当场抽定——延迟落地时用户可能已在别的桌面，
 // 那时 getInteractPool/pickAskCardReply 抽的是别的联系人的池子
 const defs = window.getInteractPool
-? window.getInteractPool('问问TA·回应', ['嗯嗯', '我想想…', '应该吧', '好呀', '我陪你', '可以的', '那挺好呀', '我觉得可以', '听你的', '当然可以', '我很乐意'])
-: ['嗯嗯', '我想想…', '应该吧', '好呀', '我陪你', '可以的', '那挺好呀', '我觉得可以', '听你的', '当然可以', '我很乐意'];
+? window.getInteractPool('问问TA·回应', ['嗯嗯', '我琢磨下…', '应该是吧', '行呀', '我陪着你', '也行', '那听着不错', '我看行', '你定', '当然行', '我乐意'])
+: ['嗯嗯', '我琢磨下…', '应该是吧', '行呀', '我陪着你', '也行', '那听着不错', '我看行', '你定', '当然行', '我乐意'];
 let text;
 if (askOpts && askOpts.length) {
 // #1415：多选题一次抽「2 ~ min(最多选几个, 选项数)」个、按题目原序念出来；单选保持抽 1 个
@@ -12057,7 +12057,7 @@ if (chatAskHistClear) chatAskHistClear.addEventListener('click', (e) => {
 // v3.26.x：邀请TA 半框内置「我的邀请」——预设 + 用户分组存邀请字卡，点卡即发送（可重复），
 // 输入框可「存入」当前分组；数据按当前桌面联系人命名空间隔离（activePrefix），
 // 结构化写入 IndexedDB 兜底，防止 iOS 存储清理导致字卡丢失（同 pokeUserGroups 策略）。
-const MY_INVITE_PRESETS = ['想和你猜拳，来一局？', '想和你玩一局 Pong，来吗？', '想和你玩双人贪吃蛇，来吗？', '想和你一起听歌'];
+const MY_INVITE_PRESETS = ['猜拳吗？我数到三', 'Pong 打一局？球拍我拿好了', '双人贪吃蛇，你敢上手吗', '一起听歌吧'];
 let myInviteDirty = false;
 let myInviteCurGroup = '__preset';
 let myInviteGroups = null;

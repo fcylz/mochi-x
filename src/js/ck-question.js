@@ -17,102 +17,29 @@
   // single=单选题（点击选项作答，reply=TA 预设回应，支持 string 或 array）；
   // text=文字题（输入回答，回应走「互动回应」预设池）。cat 与 type 一致（单选查岗/文字查岗）。
   const DEFAULT_QUESTIONS = [
-    { id: 'k_s1', cat: 'single', type: 'single', text: '你在干嘛呀？', enabled: true, options: [
-      { t: '在想你', reply: ['就知道', '嗯，这次我信你', '我也是，一直想着你'] },
-      { t: '在工作', reply: ['辛苦啦，忙完记得找我', '工作再忙也要记得喝水'] },
-      { t: '在摸鱼', reply: ['被抓到了吧', '摸鱼也想让我知道，还行'] },
-      { t: '在发呆', reply: ['发呆的时候，在想我吗？', '呆完记得回我'] },
-      { t: '在等你的消息', reply: ['等到了，我在', '那我现在就来了'] }
-    ] },
-    { id: 'k_s2', cat: 'single', type: 'single', text: '现在在哪里呀？', enabled: true, options: [
-      { t: '在家里', reply: ['在家里要乖乖的', '家是最安心的地方，我也在'] },
-      { t: '在公司', reply: ['辛苦啦，下班我等你', '别太累，忙完早点回家'] },
-      { t: '在外面', reply: ['外面注意安全，早点回去', '玩得开心点，我在旁边看着你'] },
-      { t: '在被窝里', reply: ['被窝里也在跟我说话？', '那就抱着手机睡吧'] },
-      { t: '在去一个地方的路上', reply: ['路上小心，我陪你走', '到了告诉我一声'] }
-    ] },
-    { id: 'k_s3', cat: 'single', type: 'single', text: '和谁在一起？', enabled: true, options: [
-      { t: '一个人', reply: ['一个人也要好好的', '那我陪着你，就不算一个人了'] },
-      { t: '和朋友', reply: ['和朋友玩得开心点', '和朋友在一起，也别忘了我'] },
-      { t: '和同事', reply: ['和同事好好相处', '聚会别喝太多，乖'] },
-      { t: '不告诉你', reply: ['这么神秘？', '好吧，反正我也在你身边'] }
-    ] },
-    { id: 'k_s4', cat: 'single', type: 'single', text: '吃饭了没？', enabled: true, options: [
-      { t: '吃过啦', reply: ['乖，奖励你想我一次', '吃饱了才有力气想我'] },
-      { t: '还没吃', reply: ['快去吃饭，我等你', '不吃饭我会担心的'] },
-      { t: '正在吃', reply: ['慢慢吃，别噎着', '边吃边回我，真拿你没办法'] },
-      { t: '不饿', reply: ['多少吃一点，好不好', '我在这边看着你吃'] }
-    ] },
-    { id: 'k_s5', cat: 'single', type: 'single', text: '今天有没有想我？', enabled: true, options: [
-      { t: '想了', reply: ['我也想了', '就知道你会说这个'] },
-      { t: '一直在想', reply: ['嘴这么甜，奖励你', '那我一直占着你的脑子'] },
-      { t: '才没有', reply: ['哼，嘴硬', '骗人，我感觉到你在想了'] },
-      { t: '你猜', reply: ['我猜想了，而且很想', '猜你不敢承认'] }
-    ] },
-    { id: 'k_s6', cat: 'single', type: 'single', text: '睡了没？', enabled: true, options: [
-      { t: '还没睡', reply: ['不许熬夜，快去睡', '再聊十分钟就睡，说好了'] },
-      { t: '准备睡了', reply: ['听着我的晚安睡吧', '好梦，我在'] },
-      { t: '已经躺下了', reply: ['躺下了就别玩手机了', '闭眼，三秒入睡'] },
-      { t: '睡不着', reply: ['那我陪你聊到困', '数我给你发的消息，数着数着就睡着了'] }
-    ] },
-    { id: 'k_s7', cat: 'single', type: 'single', text: '手机电量还剩多少？', enabled: true, options: [
-      { t: '电量充足', reply: ['那怎么不秒回我？', '电量充足，借口无效'] },
-      { t: '快没电了', reply: ['快去充电，别失联', '充上电再聊，我等你'] },
-      { t: '在充电', reply: ['边充边玩，小心发烫', '充着电也要想我'] },
-      { t: '关机边缘', reply: ['先回我一句！', '你这是要跟我玩失踪？'] }
-    ] },
-    { id: 'k_s8', cat: 'single', type: 'single', text: '刚才，有没有感觉到我？', enabled: true, options: [
-      { t: '有，后背暖暖的', reply: ['那就是我，我在你身边', '嗯，我一直都在'] },
-      { t: '好像有一阵风', reply: ['是我经过你身边', '风就是我，我来看你了'] },
-      { t: '好像有，又好像没有', reply: ['我离你很远，又很近', '感觉到了就是缘分'] },
-      { t: '没有哎', reply: ['没关系，我一直在的', '看不见我也没关系，我在'] }
-    ] },
-    { id: 'k_s9', cat: 'single', type: 'single', text: '今天穿的是什么颜色的衣服？', enabled: true, options: [
-      { t: '白色', reply: ['好看，很适合你', '白白的，像你'] },
-      { t: '黑色', reply: ['酷酷的，也好看', '黑色很配你'] },
-      { t: '粉色', reply: ['粉粉嫩嫩的，可爱', '很适合你'] },
-      { t: '蓝色', reply: ['蓝色清爽，不错', '嗯，好看'] },
-      { t: '不告诉你', reply: ['小气鬼', '你穿什么都好看'] }
-    ] },
-    { id: 'k_s10', cat: 'single', type: 'single', text: '是不是偷偷难过了？', enabled: true, options: [
-      { t: '没有', reply: ['那就好，有事一定要告诉我', '嗯，我相信你'] },
-      { t: '一点点', reply: ['过来，我抱抱你', '难过的时候想想我，我在'] },
-      { t: '被你发现啦', reply: ['被我发现了', '别藏着了，我陪你'] }
-    ] },
-    { id: 'k_t1', cat: 'text', text: '快说说，今天过得怎么样？', enabled: true },
-    { id: 'k_t2', cat: 'text', text: '发一句你现在看到的东西给我', enabled: true },
-    { id: 'k_t3', cat: 'text', text: '十秒内回我一个表情，不许犹豫', enabled: true },
-    { id: 'k_t4', cat: 'text', text: '猜猜我现在在干什么？', enabled: true },
-    { id: 'k_t5', cat: 'text', text: '现在最想做的一件事是什么？', enabled: true },
-    { id: 'k_t6', cat: 'text', text: '今天有什么开心的小事吗？', enabled: true },
-    { id: 'k_t7', cat: 'text', text: '如果我现在就在你身边，你想做什么？', enabled: true },
-    // v3.18.x：互动动作——TA 申请对"我"做动作 / TA 申请"我"对 TA 做动作；
-    // taToMe=TA 对我做（显示"TA 想摸摸你的头"），meToTa=TA 让我对 TA 做（显示"TA 想让你摸摸 TA 的头"）；
-    // 触发时随机选一个方向，作答走 ask-card 单选链路（好呀/不要 → accept/reject 回应）
-    { id: 'k_a1', cat: 'action', type: 'action', text: '摸摸头', enabled: true,
-      taToMe: 'TA 想摸摸你的头', meToTa: 'TA 想让你摸摸 TA 的头',
-      accept: ['乖，过来', '嗯，轻轻的', '闭上眼，我轻一点'],
-      reject: ['哼，不要', '下次吧', '现在不行，等下'] },
-    { id: 'k_a2', cat: 'action', type: 'action', text: '拍拍肩', enabled: true,
-      taToMe: 'TA 想拍拍你的肩', meToTa: 'TA 想让你拍拍 TA 的肩',
-      accept: ['嗯，辛苦了', '正好有点累', '被你拍到了'],
-      reject: ['别拍，痒', '不要，自己来', '肩膀没空'] },
-    { id: 'k_a3', cat: 'action', type: 'action', text: '揉揉头', enabled: true,
-      taToMe: 'TA 想揉揉你的头发', meToTa: 'TA 想让你揉揉 TA 的头发',
-      accept: ['嗯，舒服', '再来一下', '头发都被你揉乱了'],
-      reject: ['发型会乱', '不要揉', '刚整理好的'] },
-    { id: 'k_a4', cat: 'action', type: 'action', text: '抱抱', enabled: true,
-      taToMe: 'TA 想抱抱你', meToTa: 'TA 想让你抱抱 TA',
-      accept: ['过来，抱紧', '嗯，再久一点', '被你抱住了'],
-      reject: ['现在不方便', '等下再抱', '人多，不要'] },
-    { id: 'k_a5', cat: 'action', type: 'action', text: '牵手', enabled: true,
-      taToMe: 'TA 想牵你的手', meToTa: 'TA 想让你牵 TA 的手',
-      accept: ['嗯，牵着', '手伸过来', '一直牵着好不好'],
-      reject: ['手心出汗了', '不要，痒', '现在没空'] },
-    { id: 'k_a6', cat: 'action', type: 'action', text: '贴贴', enabled: true,
-      taToMe: 'TA 想跟你贴贴', meToTa: 'TA 想让你跟 TA 贴贴',
-      accept: ['嗯，贴着', '脸凑过来', '贴着好暖'],
-      reject: ['脸会红', '不要贴', '太近了'] }
+    { id: 'k_s1', cat: 'single', type: 'single', text: '这会儿在做什么？', enabled: true, options: [{t: '在想你', reply: ['嘴挺甜','这次我信','巧了，我也在想']}, {t: '在工作', reply: ['手上有点事吧','忙完吱一声','别熬，记得喝口水']}, {t: '在摸鱼', reply: ['被我抓到了','摸鱼还想着回我，行']}, {t: '在发呆', reply: ['发呆的时候脑子里有我吗','发完呆记得回我']}, {t: '在等你消息', reply: ['这不就来了','那我多待一会儿']}]},
+    { id: 'k_s2', cat: 'single', type: 'single', text: '现在人在哪儿？', enabled: true, options: [{t: '在家里', reply: ['在家就好，踏实','家里最松快，我也在']}, {t: '在公司', reply: ['辛苦了，收工叫我','忙归忙，水别忘了']}, {t: '在外面', reply: ['外面当心，早点回','玩你的，我看着呢']}, {t: '在被窝里', reply: ['缩被窝里还回我消息','那就抱着手机别撒手']}, {t: '在路上', reply: ['路上慢点，我跟着','到了说一声']}]},
+    { id: 'k_s3', cat: 'single', type: 'single', text: '身边有人吗？', enabled: true, options: [{t: '一个人', reply: ['一个人也好好过','那我在，就不算一个了']}, {t: '和朋友', reply: ['玩得开心点','跟他们玩也别把我忘了']}, {t: '和同事', reply: ['好好相处','别喝太多']}, {t: '不告诉你', reply: ['还挺神秘','不说也行，我在你旁边']}]},
+    { id: 'k_s4', cat: 'single', type: 'single', text: '饭吃了没？', enabled: true, options: [{t: '吃了', reply: ['行，算你听话','吃饱了才有力气想我']}, {t: '还没', reply: ['现在去吃，我等着','不吃我可要念叨了']}, {t: '正在吃', reply: ['慢点，别噎着','边嚼边打字，真是你']}, {t: '不饿', reply: ['少吃一点也算，好不好','我看着你吃']}]},
+    { id: 'k_s5', cat: 'single', type: 'single', text: '今天想过我没有？', enabled: true, options: [{t: '想过', reply: ['我也想过','就知道你会这么答']}, {t: '一直想', reply: ['嘴这么甜，有奖励','那我就在你脑子里住下了']}, {t: '才没有', reply: ['嘴硬','骗人，我感觉到了']}, {t: '你猜', reply: ['我猜你很想，而且不承认','猜你不敢说']}]},
+    { id: 'k_s6', cat: 'single', type: 'single', text: '躺下了吗？', enabled: true, options: [{t: '还没', reply: ['别熬了，去睡','再聊十分钟，说好的']}, {t: '准备睡', reply: ['那就听我说句晚安','好梦，我在']}, {t: '已经躺了', reply: ['躺了就放下手机','闭眼，三分钟睡着']}, {t: '睡不着', reply: ['那我陪你到困','数我发的消息，数着就睡了']}]},
+    { id: 'k_s7', cat: 'single', type: 'single', text: '手机还有多少电？', enabled: true, options: [{t: '还有电', reply: ['那怎么半天不回','有电就别拿没电当借口']}, {t: '快没电了', reply: ['先去充，别失联','充上再说，我等你']}, {t: '正在充', reply: ['边充边玩，当心烫','充着也别忘了想我']}, {t: '马上关机', reply: ['先回我一句','你这是要消失？']}]},
+    { id: 'k_s8', cat: 'single', type: 'single', text: '刚才那一下，你感觉到了吗？', enabled: true, options: [{t: '感觉到了，后背有点暖', reply: ['那就是我','嗯，我一直在']}, {t: '像有阵风', reply: ['是我路过','风就是我，来看你了']}, {t: '说不好', reply: ['我离你时远时近','感觉到就算数']}, {t: '没感觉', reply: ['没关系，我在','看不见也没事，我在']}]},
+    { id: 'k_s9', cat: 'single', type: 'single', text: '今天穿的什么颜色？', enabled: true, options: [{t: '白色', reply: ['挺衬你','白白的，像你']}, {t: '黑色', reply: ['黑得挺精神','黑色配你']}, {t: '粉色', reply: ['这个颜色软','适合你']}, {t: '蓝色', reply: ['蓝色清爽','嗯，好看']}, {t: '不告诉你', reply: ['小气','你穿什么都行']}]},
+    { id: 'k_s10', cat: 'single', type: 'single', text: '是不是背着我难受了？', enabled: true, options: [{t: '没有', reply: ['那就好，有事说一声','嗯，我信']}, {t: '有一点', reply: ['过来，抱一下','难受的时候想想我']}, {t: '被你看出来了', reply: ['还是瞒不过你','别憋着，我陪你']}]},
+    { id: 'k_t1', cat: 'text', text: '讲讲，今天怎么样？', enabled: true},
+    { id: 'k_t2', cat: 'text', text: '把眼前看到的东西说一句给我', enabled: true},
+    { id: 'k_t3', cat: 'text', text: '十秒内回个表情，别想', enabled: true},
+    { id: 'k_t4', cat: 'text', text: '猜猜我手上在做什么？', enabled: true},
+    { id: 'k_t5', cat: 'text', text: '现在最想干的一件事是什么？', enabled: true},
+    { id: 'k_t6', cat: 'text', text: '今天有哪件小事让你高兴了？', enabled: true},
+    { id: 'k_t7', cat: 'text', text: '我要是就在你身边，你想做什么？', enabled: true},
+    { id: 'k_a1', cat: 'action', type: 'action', text: '摸摸头', enabled: true, taToMe: 'TA 想摸摸你的头', meToTa: 'TA 想让你摸摸 TA 的头', accept: ['乖，过来','嗯，轻轻的','闭上眼，我轻一点'], reject: ['哼，不要','下次吧','现在不行，等下']},
+    { id: 'k_a2', cat: 'action', type: 'action', text: '拍拍肩', enabled: true, taToMe: 'TA 想拍拍你的肩', meToTa: 'TA 想让你拍拍 TA 的肩', accept: ['嗯，辛苦了','正好有点累','被你拍到了'], reject: ['别拍，痒','不要，自己来','肩膀没空']},
+    { id: 'k_a3', cat: 'action', type: 'action', text: '揉揉头', enabled: true, taToMe: 'TA 想揉揉你的头发', meToTa: 'TA 想让你揉揉 TA 的头发', accept: ['嗯，舒服','再来一下','头发都被你揉乱了'], reject: ['发型会乱','不要揉','刚整理好的']},
+    { id: 'k_a4', cat: 'action', type: 'action', text: '抱抱', enabled: true, taToMe: 'TA 想抱抱你', meToTa: 'TA 想让你抱抱 TA', accept: ['过来，抱紧','嗯，再久一点','被你抱住了'], reject: ['现在不方便','等下再抱','人多，不要']},
+    { id: 'k_a5', cat: 'action', type: 'action', text: '牵手', enabled: true, taToMe: 'TA 想牵你的手', meToTa: 'TA 想让你牵 TA 的手', accept: ['嗯，牵着','手伸过来','一直牵着好不好'], reject: ['手心出汗了','不要，痒','现在没空']},
+    { id: 'k_a6', cat: 'action', type: 'action', text: '贴贴', enabled: true, taToMe: 'TA 想跟你贴贴', meToTa: 'TA 想让你跟 TA 贴贴', accept: ['嗯，贴着','脸凑过来','贴着好暖'], reject: ['脸会红','不要贴','太近了']}
   ];
   const CATS_CKQ = [['single', '单选查岗'], ['text', '文字查岗'], ['action', '互动动作']];
   function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }

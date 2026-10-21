@@ -5,7 +5,14 @@ const KEY = 'mail-letters';
 const SNAP_KEY = 'mail-letters-snap';
 const LS_BIG_LIMIT = 200 * 1024;
 const HOLD_KEY = 'mail-letters-hold';
-const TITLES = ['好久不见', '最近还好吗', '想你了', '给你写了封信', '深夜随想', '一些想说的话'];
+const TITLES = [
+'好久不见',
+'最近怎么样',
+'想你了',
+'写了封信给你',
+'夜里写的',
+'几句想说的'
+];
 let mtab = 'in';
 let viewLetter = null;
 function partnerName() { return store.get('lbl-partner') || 'TA'; }
@@ -740,11 +747,11 @@ selectMailTab('out');
 render();
 }
 const TA_LETTERS = [
-'最近总是想起我们以前聊的那些话。时间过得真快，但有些东西一直没变。给我回信吧。',
-'今天路过一个地方，突然很想你。最近过得还好吗？想听听你的消息。',
-'忽然想给你写封信。有些话，用字卡说不完，写下来好像更踏实。',
-'晚安前突然想起你。最近有没有好好休息？有空给我回封信吧。',
-'今天看到一片很好看的云，第一反应是想拍给你看。想你了。'
+'最近老想起我们以前聊的那些。日子过得快，有些东西倒是没动。回我一封信吧。',
+'今天路过一个地方，忽然很想你。最近还好吗？想听你说说。',
+'突然想写信给你。有些话用字卡说不完，写下来才踏实。',
+'睡前忽然想到你。这段时间有好好休息吗？有空回我。',
+'今天看见一片很好的云，第一反应是想给你看。想你了。'
 ];
 function mailCfg() {
 const c = (window.replyCfg && window.replyCfg()) || {};

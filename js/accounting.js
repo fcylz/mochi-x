@@ -704,12 +704,12 @@ var KEY_RM_PROB = 'acc-remind-prob';
 var KEY_RM_DAY = 'acc-remind-day';
 var RM_PROB_DEF = 30;
 var RM_MSGS = [
-'今天的账还没记呢，记一笔好不好',
-'今天花了些什么呀？记下来我才知道你的一天',
-'来记账啦，我帮你看着小账本',
-'先把今天的记了嘛，晚点就忘啦',
-'记账时间到～今天也辛苦了',
-'今天的收支记一笔嘛，我们一起攒着'
+'今天的账还没记，记一笔？',
+'今天花了什么？记下来我才知道你怎么过的',
+'来记账，我帮你看小账本',
+'先把今天的记了，晚点就忘',
+'记账时间到，今天也辛苦了',
+'今天收支记一笔，一起攒着'
 ];
 function rmOn() { try { return store.get(KEY_RM_ON) === '1'; } catch (e) { return false; } }
 function rmProb() {

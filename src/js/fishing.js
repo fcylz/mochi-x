@@ -440,9 +440,23 @@
     }
   }
   // ---- TA 钓鱼互动话术（开心/得意/安慰，内置兜底） ----
-  const TA_HAPPY = ['钓到了！', '今天运气不错。', '这条给你看看。', '嘿嘿，上钩了。'];
-  const TA_PROUD = ['难得的收获呢。', '这条很漂亮吧。', '好久没钓到这么好的了。'];
-  const TA_COMFORT = ['没事，再试一次。', '鱼很狡猾的。', '别灰心，慢慢来。', '跑掉的总是比较大的。'];
+  const TA_HAPPY = [
+    '上钩了！',
+    '今天手气好。',
+    '这条拿给你看。',
+    '嘿嘿，咬钩了。'
+  ];
+  const TA_PROUD = [
+    '难得有收获。',
+    '这条漂亮吧。',
+    '好久没钓着这么好的。'
+  ];
+  const TA_COMFORT = [
+    '没事，再来一次。',
+    '鱼精着呢。',
+    '别灰心，慢慢来。',
+    '跑掉的那条总是更大。'
+  ];
   function sendTaLine(text, glow) {
     try { if (window.chatAddIn) window.chatAddIn(glow ? '💝 ' + text : text, { silent: true }); } catch (e) {}
   }
@@ -536,7 +550,12 @@
   }
   function loadBox() { const a = readJSON('giftbox-items', null); return Array.isArray(a) ? a : []; }
   function saveBox(a) { writeJSON('giftbox-items', a); }
-  const TA_COOK_WISH = ['给你尝尝。', '刚做好的，趁热吃。', '这道菜想让你试试。', '用心做的，希望你喜欢。'];
+  const TA_COOK_WISH = [
+    '尝尝这个。',
+    '刚出锅，趁热。',
+    '这道想让你试试。',
+    '认真做的，你尝尝。'
+  ];
   function cookMine(fishId) {
     const d = dishOf(fishId); if (!d) { toast('这种鱼不能烹饪'); return; }
     const t = loadToday();

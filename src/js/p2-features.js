@@ -496,7 +496,24 @@
 // ================= 寻踪（TA 的日常）=================
 const DEF_PLACES = ['在家', '在公司', '在咖啡店', '在公园', '在图书馆', '在路上', '在朋友家', '在健身房', '在超市', '在电影院', '在便利店', '在书店', '在地铁上', '在阳台', '在河边', '在小区楼下', '在面包店', '在车站', '在自习室'];
 const DEF_ACTIONS = ['刷手机', '看书', '发呆', '听歌', '写东西', '吃零食', '喝奶茶', '散步', '玩游戏', '想你', '看电影', '追剧', '刷视频', '等快递', '收拾房间', '洗衣服', '做饭', '泡茶', '吃水果', '拍照'];
-const DEF_CHECK_MSGS = ['想你了', '记得按时吃饭', '今天也很喜欢你', '早点休息', '有空给我回消息', '别太累', '喝水了吗', '今天开心吗', '我今天有点累', '我今天很开心', '我今天有点想你', '我今天有点无聊', '今天过得怎么样', '记得多穿点', '路上注意安全', '晚安'];
+const DEF_CHECK_MSGS = [
+    '有点想你',
+    '饭别拖',
+    '今天也喜欢你',
+    '早点睡',
+    '忙完回我一声',
+    '别硬撑',
+    '水喝了没',
+    '今天还好吗',
+    '我今天有点乏',
+    '我今天心情不错',
+    '我今天有点惦记你',
+    '我今天有点闲得慌',
+    '今天过得如何',
+    '记得加衣服',
+    '路上当心',
+    '睡了，晚安'
+  ];
 // 寻踪日常字卡（可自定义，localStorage 持久化；空则用默认）
 // v3.6.x：是否使用系统预设字卡（默认开启；关闭后寻踪只从用户添加的字卡里抽）
 const CK_DEF_KEY = 'checkin-cards-default';
@@ -2078,7 +2095,13 @@ if (ckRefresh) {
   // 两枚开关与字卡库那道闸照常生效（它们管的是这一发长什么样，不是什么时候发）。
   // avoidText＝上一张是什么就重抽（最多三发）：同一句再抽一遍＝用户点了半天「此刻的位置」与方位一动不动。
   function emitLocChange(avoidText) {
-    const companion = ['在你身边', '一直没走远', '隔着世界在你身边', '隐约在你身旁', '在你看不到的地方']
+    const companion = [
+    '在你身边待着',
+    '就从没走远过',
+    '隔着一整个世界也在',
+    '隐约就在旁边',
+    '你看不见的地方'
+  ]
       // #1315：这五行是「状态/感知」两类位置卡的字面量副本，旧写法从不过闸＝在字卡库里整组停用
       //   或逐张关掉后，TA 自动换位照发这些话（用户报的「关不掉」）。按所属分类反查一次同一判据。
       .filter(function (t) { return !(window.locLibTextOff && window.locLibTextOff(t)); });
@@ -2160,8 +2183,23 @@ if (ckRefresh) {
     { k: '左侧',   arrow: '←', angle: 180 },
     { k: '左前方', arrow: '↖', angle: 225 }
   ];
-  const NEAR_WORDS = ['在你身边', '一直没走远', '隔着世界在你身边', '能摸到我吗', '陪你走着', '停下来等你', '抬头就能看到', '在你前面', '原地等你'];
-  const FAR_WORDS = ['在你看不到的地方', '在你看不到的地方偷看你', '再远一点', '就停这儿'];
+  const NEAR_WORDS = [
+    '就在你边上',
+    '一直没走开',
+    '隔着世界也在',
+    '摸得到我吗',
+    '陪你一起走',
+    '站住等你',
+    '抬头就能看见',
+    '在你前头',
+    '原地没动'
+  ];
+  const FAR_WORDS = [
+    '你看不见的地方',
+    '躲在你看不见的地方看你',
+    '还远一点',
+    '就停在这儿'
+  ];
   // v3.26.x：从位置卡文本推导 8 方向（消除「感知↗ 位置↘」矛盾——感知方向与最近位置卡对齐）
   function dirFromText(t) {
     if (!t) return '';
@@ -2498,8 +2536,19 @@ if (ckRefresh) {
   }, true);
 
   // 打卡字卡：他递来一张；低概率"没控制住"配温柔解读。cb(card|null)，card={text, miss?}
-  const CHECKIN_TA_CARDS = ['你今天也努力了', '我一直看着你呢', '又一起过了一天', '辛苦啦，过来抱抱', '嗯，今天也好好过来了', '你在，我就安心'];
-  const CHECKIN_TA_MISS = ['（字卡有限，他想说的比这张多）', '（这张好像不是他想说的，别在意）', '（他没控制住，意思不全是这个）'];
+  const CHECKIN_TA_CARDS = [
+    '今天你也挺拼',
+    '我一直看着你',
+    '又过去一天了',
+    '累了吧，来抱一下',
+    '嗯，又熬过来一天',
+    '你在就踏实'
+  ];
+  const CHECKIN_TA_MISS = [
+    '（能发的卡不多，他想说的还不止这些）',
+    '（这张大概不是他本来想说的）',
+    '（他手滑了，意思不太对）'
+  ];
   window.checkinTaCard = function (cb) {
     if (!window.taChimeAllow('checkin-ta', { cooldown: 24 * 3600 * 1000, dailyMax: 1 })) { if (cb) cb(null); return; }
     window.taChimeUse('checkin-ta');
@@ -2634,7 +2683,16 @@ if (ckRefresh) {
   }
 
   // ---- 同频页 ----
-  const DEF_STATUS = ['在听雨', '在看你写东西', '没睡，在发呆', '刚路过你身边', '在想你', '在发呆', '在看你', '在等你看我'];
+  const DEF_STATUS = [
+    '在听雨声',
+    '在看你打字',
+    '还没睡，在放空',
+    '刚从你旁边过',
+    '又想到你了',
+    '在发呆',
+    '在看你',
+    '在等你抬头'
+  ];
   const tpPage = document.createElement('div');
   tpPage.className = 'page'; tpPage.id = 'page-tongpin'; tpPage.hidden = true;
   tpPage.innerHTML =
@@ -2702,7 +2760,14 @@ if (ckRefresh) {
   if (tpSendBtn) { tpSendBtn.textContent = '发到聊天：' + (tpSendOn() ? '开' : '关'); tpSendBtn.addEventListener('click', () => { const s = curStore(); const on = !tpSendOn(); if (s) try { s.set('tongpin-send-chat', on ? '1' : '0'); } catch (e) {} tpSendBtn.textContent = '发到聊天：' + (on ? '开' : '关'); }); }
 
   // ---- 伸手页 ----
-  const DEF_WHISPER = ['被你抓到了', '嗯，在', '刚路过你', '我在', '摸到了吧', '没走远'];
+  const DEF_WHISPER = [
+    '被逮到了',
+    '嗯，在呢',
+    '刚过来',
+    '在',
+    '摸到了没',
+    '没走开'
+  ];
   const ssPage = document.createElement('div');
   ssPage.className = 'page'; ssPage.id = 'page-shenshou'; ssPage.hidden = true;
   ssPage.innerHTML =
@@ -2776,15 +2841,38 @@ if (ckRefresh) {
   if (ssSendBtn) { ssSendBtn.textContent = '发到聊天：' + (ssSendOn() ? '开' : '关'); ssSendBtn.addEventListener('click', () => { const s = curStore(); const on = !ssSendOn(); if (s) try { s.set('shenshou-send-chat', on ? '1' : '0'); } catch (e) {} ssSendBtn.textContent = '发到聊天：' + (on ? '开' : '关'); }); }
 
   // ---- 喝水页 ----
-  const DEF_WATER_MSGS = ['该喝水了', '别忘了喝水', '喝口水吧', '你今天水喝够了吗'];
-  const DEF_WATER_PRAISE = ['今天喝够啦', '真棒', '完成了', '好乖'];
+  const DEF_WATER_MSGS = [
+    '水该喝了',
+    '记得喝水',
+    '去喝口水',
+    '今天水够量了吗'
+  ];
+  const DEF_WATER_PRAISE = [
+    '今天够量了',
+    '可以啊',
+    '达标了',
+    '挺听话'
+  ];
   const DEF_WATER_ENCOURAGE = ['再来一杯', '继续', '嗯', '快了'];
   const DEF_WATER_TA = ['TA 说：{m}', 'TA 让我提醒你：{m}', 'TA 念着：{m}', 'TA 托我带句话：{m}'];
   // 世界观：他视角提醒（灵体在身边，字卡语态）；偶尔出得不准配温柔解读
-  const DEF_WATER_TA_GENTLE = ['水凉了，喝一口？', '你忘了吧，喝一口', '我在呢，先喝口水', '嗯，去喝一口好不好', '别忙忘了喝水'];
+  const DEF_WATER_TA_GENTLE = [
+    '水要凉了，喝掉吧',
+    '是不是忘了，喝一口',
+    '我在，先润润嗓子',
+    '去喝一口，好不好',
+    '别忙到忘了水'
+  ];
   // v3.14.x：梦角催喝水兜底池（同 default-cards-data.js「梦角催喝水」分组，
   // 正常走 libPool('water','梦角催喝水') 同源+逐张开关，数据缺失才用这里）
-  const DEF_WATER_CHAT_REMIND = ['该喝水啦，我看着你呢', '去喝口水吧，我在这儿等你回来', '半天没听见你倒水的声音了', '杯子是不是空了很久了？', '别光顾着忙，润润嗓子好不好', '水就放在手边，伸伸手就够到了'];
+  const DEF_WATER_CHAT_REMIND = [
+    '水还没喝吧，我盯着呢',
+    '去倒杯水，我等你回来',
+    '好一阵没听见你起身了',
+    '杯子是不是一直空着',
+    '忙也得润一下嗓子',
+    '水就在手边，伸手的事'
+  ];
   const waterPage = document.createElement('div');
   waterPage.className = 'page'; waterPage.id = 'page-water'; waterPage.hidden = true;
   waterPage.innerHTML =
@@ -3020,7 +3108,15 @@ if (ckRefresh) {
 
   // ---- 吃什么页 ----
   const DEF_EAT_DISHES = ['番茄炒蛋', '红烧肉', '清蒸鱼', '麻婆豆腐', '宫保鸡丁', '酸辣土豆丝', '蛋炒饭', '牛肉面', '饺子', '馄饨', '皮蛋瘦肉粥', '可乐鸡翅', '糖醋排骨', '清炒时蔬', '蛋花汤', '凉拌黄瓜', '回锅肉', '水煮肉片', '鱼香肉丝', '葱油拌面'];
-  const DEF_EAT_COMMENTS = ['就吃这个吧', '听起来不错', '我想吃这个', '可以', '这个好吃', '嗯，就这个', '想吃'];
+  const DEF_EAT_COMMENTS = [
+    '那就这个',
+    '听着挺好',
+    '这个我想吃',
+    '行',
+    '这个不错',
+    '嗯，这个吧',
+    '想吃这个'
+  ];
   const EAT_ASK_MSGS = ['今晚吃 {0} 怎么样？', '{0}，想吃吗？', '要不要吃 {0}？', '今天吃 {0} 好不好？'];
   const eatPage = document.createElement('div');
   eatPage.className = 'page'; eatPage.id = 'page-eat'; eatPage.hidden = true;
@@ -3356,11 +3452,35 @@ if (ckRefresh) {
   // 话术池与字卡库【系统预设字卡 → 吃什么】tab 同源（DEFAULT_CARD_DATA.eat，
   // 分组「提醒吃饭/追问关心」），逐张开关（dc-off-eat:*）经 libPool 过滤后参与抽取。
   const DEF_EAT_REMIND = ['到饭点啦，去吃饭吧', '该吃饭了哦，别饿着', '今天吃 {d} 怎么样？就它了', '{d} 挺好的，去吃这个吧', '记得吃热乎的，别随便对付一口', '去吃饭吧，吃完跟我说说吃了什么', '别忙忘了吃饭，胃是自己的', '我看着呢，快去吃饭', '放下手里的事，先吃饭好不好', '饭要按时吃，我才会放心', '好好吃饭的人，运气不会太差哦', '饿了就去做点吃的，别硬撑'];
-  const DEF_EAT_REMIND_CARE = ['吃了什么呀？说给我听听', '吃饱了吗？没饱再去添一点', '吃得合胃口吗？', '慢慢吃，不着急', '记得配点汤汤水水', '吃完了就休息一会儿吧'];
+  const DEF_EAT_REMIND_CARE = [
+    '吃的什么？讲讲',
+    '饱了没，不够再添',
+    '合口味吗',
+    '慢慢吃，别赶',
+    '配点汤水，别干吃',
+    '吃完歇一会儿'
+  ];
   // v3.26.x：夜宵窗口（21:30–23:30）专属话术——与字卡库【吃什么】tab「夜宵提醒/夜宵关心」
   // 分组同源（default-cards-data.js），深夜不再复用「按时吃饭」文案；仍可逐张开关（dc-off-eat:*）
-  const DEF_EAT_REMIND_NIGHT = ['夜深了，饿不饿？想吃点夜宵吗', '这个点还没睡呀，要不要来点夜宵', '饿着肚子睡觉可不好，去弄点吃的吧', '夜宵别吃太撑，留点肚子给梦', '偷偷问一句，今晚想吃夜宵吗', '去煮碗热乎的面吧，我陪你吃', '深夜的胃，也该被好好对待', '别只啃饼干，夜宵也要认真吃', '吃夜宵的人，今晚会做甜甜的梦', '要不要我给你留一盏灯，你去觅食'];
-  const DEF_EAT_REMIND_NIGHT_CARE = ['夜宵吃的什么呀？说给我听听', '吃饱了就快去睡，别熬太晚', '吃完夜宵记得刷个牙再睡哦', '太晚就别吃太辣的，伤胃', '夜宵吃完了就躺下吧，我守着'];
+  const DEF_EAT_REMIND_NIGHT = [
+    '这个点了，饿不饿，弄点吃的？',
+    '还没睡，来点夜宵不',
+    '空着肚子睡不踏实，去弄点吃',
+    '夜宵别吃撑，留点肚子做梦',
+    '小声问一句，今晚吃夜宵吗',
+    '煮碗面吧，我陪你吃',
+    '这个点的胃也得照顾',
+    '别拿饼干糊弄，夜宵也认真吃',
+    '吃了夜宵，今晚梦会甜一点',
+    '给你留盏灯，你去翻点吃的'
+  ];
+  const DEF_EAT_REMIND_NIGHT_CARE = [
+    '夜宵吃的什么，说说',
+    '吃饱就去睡，别再熬',
+    '吃完记得刷牙再躺',
+    '这个点别吃太辣，胃受不了',
+    '吃完就躺，我守着'
+  ];
   // 饭点窗口（分钟）：早 06:30–09:30 / 午 11:00–13:30 / 晚 17:00–19:30 / 夜宵 21:30–23:30
   const EAT_REMIND_WINDOWS = [['breakfast', 390, 570], ['lunch', 660, 810], ['dinner', 1020, 1170], ['nightcap', 1290, 1410]];
   function eatDayKey() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
@@ -3454,9 +3574,21 @@ if (ckRefresh) {
   // ---- 番茄钟页 ----
   // 专注/小憩/长休三档倒计时 + 圆环进度；完成专注记一个 🍅（今日/累计），可发到聊天。
   // 计时基于 endAt 时间戳（不依赖 interval 精度），离开页面后台照走、熄屏回来时间正确。
-  const DEF_POMO_PRAISE = ['专注的你最棒了', '认真的人最好看', '加油，我在陪你', '嗯嗯，我安静陪着', '专注完抱一下'];
+  const DEF_POMO_PRAISE = [
+    '专注的时候你最好看',
+    '认真的样子挺迷人',
+    '加油，我陪着',
+    '嗯，我安静陪着',
+    '做完来抱一下'
+  ];
   // 世界观：他此刻近时，专注完成用近状态语（灵体在旁边静静陪）
-  const DEF_POMO_NEAR = ['你专注的时候，我就静静待在旁边', '认真完啦，过来靠靠你', '我一直在旁边看着你呢', '专注完啦，抱一下', '你在认真，我在旁边，挺好'];
+  const DEF_POMO_NEAR = [
+    '你忙你的，我在旁边待着',
+    '忙完了，过来靠一下',
+    '我一直在旁边看着',
+    '做完了，抱一下',
+    '你认真，我陪着，挺好'
+  ];
   const POMO_MODES = { focus: { name: '专注', def: 25 }, short: { name: '小憩', def: 5 }, long: { name: '长休', def: 15 } };
   const POMO_RING_C = 552.92; // 2π×88 圆环周长
   const pomoPage = document.createElement('div');
@@ -3688,15 +3820,39 @@ if (ckRefresh) {
   // 世界观：两个人一起攒的小金库（所有桌面/联系人共用一份，同 period/fish-log 全局先例）；
   // TA 是灵体，久未打开时有概率「塞给你」一枚硬币——纯彩蛋提示不入账，由你决定要不要存；
   // 存钱/取钱时用碎碎念字卡回应，攒够目标会庆祝。
-  const DEF_PIGGY_IN = ['叮～又攒下一点啦', '小猪替你收好了', '离目标更近了哦', '嗯嗯，我看着呢', '慢慢攒，不着急'];
-  const DEF_PIGGY_OUT = ['该花的花，别太省', '买什么了呀？', '咦，少了一点点', '没关系，再攒回来'];
-  const DEF_PIGGY_FULL = ['我们存够啦！！', '目标达成，真棒', '攒够了！想好怎么花了吗'];
+  const DEF_PIGGY_IN = [
+    '叮，又进了一点',
+    '小猪给你收进罐里了',
+    '离目标又近一步',
+    '嗯，我盯着呢',
+    '慢慢来，不急'
+  ];
+  const DEF_PIGGY_OUT = [
+    '该花就花，不用抠',
+    '买了什么',
+    '咦，少了一点',
+    '没事，再攒回去'
+  ];
+  const DEF_PIGGY_FULL = [
+    '攒够了！！',
+    '目标到了，不错',
+    '够了，想好怎么用没'
+  ];
   // 里程碑（存到目标的 25/50/75% 时各庆祝一次，标记存在心愿对象上防重复）
   const PIGGY_MS = [{ p: 25, t: '已经攒到四分之一啦' }, { p: 50, t: '过半啦，好厉害' }, { p: 75, t: '就差一点点了' }];
   // 取款后 TA 的关心追问（可回复一句）
-  const PIGGY_CARE = ['花在哪了呀？', '买什么了？跟我说说嘛', '没乱花钱吧？', '钱去哪啦，说来听听'];
+  const PIGGY_CARE = [
+    '花哪儿了',
+    '买什么了，说说',
+    '没乱花吧',
+    '钱去哪儿了，讲讲'
+  ];
   const PIGGY_TA_COINS = [0.52, 5.2, 5.21, 6.66, 8.88, 9.99, 13.14];
-  const PIGGY_TA_NOTES = ['偷偷塞了一点', '给你也存了一份', '嘿嘿，别问哪来的'];
+  const PIGGY_TA_NOTES = [
+    '偷偷补了一点',
+    '给你也留了一份',
+    '别问哪儿来的'
+  ];
   const piggyPage = document.createElement('div');
   piggyPage.className = 'page'; piggyPage.id = 'page-piggy'; piggyPage.hidden = true;
   piggyPage.innerHTML =
@@ -4179,8 +4335,19 @@ if (ckRefresh) {
     try { g.set('piggy-coin2-migrated', '1'); } catch (e) {}
   }
   const COIN_TA_COINS = [5.2, 5.21, 6.66, 8.88, 9.99, 13.14, 52, 52.1];
-  const COIN_TA_NOTES = ['偷偷塞了一把心意币', '你的心意币变多了', '帮你多存了一点', '嘿嘿，攒着别乱花'];
-  const COIN_IN_MSG = ['心意币存进来啦', '又攒下一点，真棒', '小金币替你看管着', '离攒币心愿更近了', '安心，都替你收好'];
+  const COIN_TA_NOTES = [
+    '悄悄塞了一把心意币',
+    '你那边的心意币多了一些',
+    '替你多存了点',
+    '攒着，别乱花'
+  ];
+  const COIN_IN_MSG = [
+    '心意币到账了',
+    '又攒上一点，不错',
+    '小金币替你看着',
+    '离那个心愿更近了',
+    '放心，都收好了'
+  ];
   const COIN_FULL_MSG = ['攒够心意币啦！！', '目标达成，想好怎么花了吗'];
   const COIN_OUT_MSG = ['取回心意币啦', '金币不多，省着点哦'];
   function piggyCoinLog() { const s = piggyCoinStore(); if (!s) return []; try { const a = JSON.parse(s.get('piggy-coin2-log') || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
@@ -4464,11 +4631,39 @@ if (ckRefresh) {
   // ---- 番茄钟 · 陪伴模式 ----
   // 专属聊天窗（#page-pmp-chat）：陪伴期间所有对话只进独立小窗，不写普通聊天记录；
   // 普通聊天页仅保留倒计时状态条。会话持久化（endAt 时间戳，刷新/重开继续）；切联系人自动退出。
-  const PMP_GREET = ['好，我陪着你', '去吧，我在这等你', '专注吧，我不吵你', '嗯，一起加油'];
-  const PMP_ENC = ['在呢', '继续哦', '摸摸头', '嗯嗯，陪你', '快了快了', '我在看你专注'];
-  const PMP_DONE = ['🍅 完成一个！为你骄傲', '🍅 太棒了，去休息一下吧', '🍅 收工！今天也超认真'];
-  const PMP_REPLIES = ['嗯嗯，我在', '专心哦，我看着你呢', '加油，很快就完成了', '嗯，陪你', '别分心呀，专注完再聊', '好，一起加油', '我在呢，安心专注'];
-  const PMP_TIRED = ['累就先歇口气，深呼吸一下', '辛苦啦，摸摸头，再坚持一小会儿', '累了就慢一点，我不催你'];
+  const PMP_GREET = [
+    '行，我陪你',
+    '去忙吧，我等着',
+    '专心，我不出声',
+    '嗯，一起'
+  ];
+  const PMP_ENC = [
+    '在',
+    '接着来',
+    '摸头',
+    '嗯，陪你',
+    '快结束了',
+    '我在看你认真'
+  ];
+  const PMP_DONE = [
+    '🍅 又完成一个，不错',
+    '🍅 行，去歇会儿',
+    '🍅 收工，今天够认真'
+  ];
+  const PMP_REPLIES = [
+    '嗯，在',
+    '专心，我盯着',
+    '加油，快好了',
+    '嗯，陪着',
+    '别分心，做完再说',
+    '行，一起使劲',
+    '我在，你专心'
+  ];
+  const PMP_TIRED = [
+    '累了先喘口气，深吸一下',
+    '辛苦了，摸下头，再撑一会儿',
+    '累了就慢点，我不催'
+  ];
   let pmpRec = null;
   try { pmpRec = JSON.parse((pomoStore() && pomoStore().get('pomo-companion')) || 'null'); } catch (e) { pmpRec = null; }
   if (!pmpRec || typeof pmpRec !== 'object') pmpRec = null;
@@ -4813,12 +5008,12 @@ if (ckRefresh) {
   // tab 同源可查看/逐张开关）；过滤用户已关闭的卡片，池缺失时回退内置兜底
   const FISH_NOTE_FALLBACK = ['ta在那边也偷了个懒'];
   const CATCH_REPLIES = [
-    '呀…被你看到了',
-    '才、才没有偷懒…好吧，被抓到了',
-    '被你抓包了……脸有点烫',
-    '哼，下次偷偷的，不让你发现',
-    '抓到就抓到……要抱一下才肯继续摸',
-    '……罚我陪你十分钟行不行'
+    '啧，被你看见了',
+    '才没偷懒……好吧，被逮到了',
+    '让你抓着了……有点热',
+    '哼，下回小心点，不叫你逮',
+    '抓着就抓着……抱一下才肯继续',
+    '……罚我陪你十分钟，行吗'
   ];
   function fishPool(name, fallback) {
     let arr = (window.getFishPool ? window.getFishPool(name, fallback) : fallback).slice();

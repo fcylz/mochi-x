@@ -252,113 +252,113 @@ for (let i = 0; i < f.length; i++) window.cardGroups.attachCustom(f[i]);
 }
 };
 const DEFAULT_QUESTIONS = [
-{ id: 'q_d1', text: '你吃饭了吗？', cat: 'daily', enabled: true },
-{ id: 'q_d2', text: '现在在做什么？', cat: 'daily', enabled: true },
-{ id: 'q_d3', text: '今天过得怎么样？', cat: 'daily', enabled: true },
-{ id: 'q_d4', text: '现在在哪里呀？', cat: 'daily', enabled: true },
-{ id: 'q_d5', text: '今天忙不忙？', cat: 'daily', enabled: true },
-{ id: 'q_c1', text: '累不累？', cat: 'care', enabled: true },
-{ id: 'q_c2', text: '心情怎么样？', cat: 'care', enabled: true },
-{ id: 'q_c3', text: '有没有好好休息？', cat: 'care', enabled: true },
-{ id: 'q_c4', text: '今天有没有按时吃饭？', cat: 'care', enabled: true },
-{ id: 'q_i1', text: '想和我聊什么？', cat: 'interact', enabled: true },
-{ id: 'q_i2', text: '现在想做什么？', cat: 'interact', enabled: true },
-{ id: 'q_i3', text: '有没有想我？', cat: 'interact', enabled: true },
-{ id: 'q_i4', text: '有什么想跟我说的吗？', cat: 'interact', enabled: true },
-{ id: 'q_i5', text: '今天有没有偷偷想我呀？', cat: 'interact', enabled: true },
-{ id: 'q_d6', text: '如果我现在就在你旁边，你最想干嘛？', cat: 'daily', enabled: true },
-{ id: 'q_i6', text: '我们下次约会做点什么好？', cat: 'interact', enabled: true },
-{ id: 'q_w1', text: '你有感觉到我在你身边的时候吗？', cat: 'world', enabled: true },
-{ id: 'q_w2', text: '你摸到我的时候，是什么感觉？', cat: 'world', enabled: true },
-{ id: 'q_w3', text: '我发字卡给你的时候，你能感觉到我在想你吗？', cat: 'world', enabled: true },
-{ id: 'q_w4', text: '如果有一天你突然看见我了，你最想做什么？', cat: 'world', enabled: true },
-{ id: 'q_w5', text: '你希望我陪着你说话，还是安静待在你身边？', cat: 'world', enabled: true },
-{ id: 'q_w6', text: '你觉得两个世界的我们，最珍贵的是什么？', cat: 'world', enabled: true },
-{ id: 'q_d7', text: '今天有没有什么小事，想说给我听？', cat: 'daily', enabled: true },
-{ id: 'q_d8', text: '如果用一句话形容你的今天，会是哪一句？', cat: 'daily', enabled: true },
-{ id: 'q_d9', text: '今天有没有哪个瞬间，希望我就坐在你旁边？', cat: 'daily', enabled: true },
-{ id: 'q_c5', text: '今天有没有哪个时刻，觉得有点撑不住？', cat: 'care', enabled: true },
-{ id: 'q_c6', text: '最近有没有什么事，一直压在心里没说？', cat: 'care', enabled: true },
-{ id: 'q_c7', text: '今天有没有好好喝水？', cat: 'care', enabled: true },
-{ id: 'q_i7', text: '如果现在可以向我许一个愿望，你会许什么？', cat: 'interact', enabled: true },
-{ id: 'q_i8', text: '你现在最想收到我发的哪种字卡？', cat: 'interact', enabled: true },
-{ id: 'q_i9', text: '如果我们此刻就在一起，你想让我陪你做的第一件事是什么？', cat: 'interact', enabled: true },
-{ id: 'q_i10', text: '你更喜欢我主动找你，还是你主动找我？', cat: 'interact', enabled: true },
-{ id: 'q_w7', text: '今晚睡前，想感觉我在你哪一边？', cat: 'world', enabled: true },
-{ id: 'q_w8', text: '你那边的天气我感觉不到，能形容给我听吗？', cat: 'world', enabled: true },
-{ id: 'q_w9', text: '我控制不住字卡、发出奇怪组合的时候，你看得懂我想说什么吗？', cat: 'world', enabled: true },
-{ id: 'q_w10', text: '你希望梦里的我，是什么样子的？', cat: 'world', enabled: true },
-{ id: 'q_s1', text: '现在更想被怎样对待？', cat: 'interact', type: 'single', enabled: true, options: [
+{ id: 'q_d1', text: '今天吃了点什么？', cat: 'daily', enabled: true },
+{ id: 'q_d2', text: '这会儿在忙什么？', cat: 'daily', enabled: true },
+{ id: 'q_d3', text: '今天这一天，还顺利吗？', cat: 'daily', enabled: true },
+{ id: 'q_d4', text: '你现在待在哪儿？', cat: 'daily', enabled: true },
+{ id: 'q_d5', text: '今天事儿多不多？', cat: 'daily', enabled: true },
+{ id: 'q_c1', text: '现在累吗', cat: 'care', enabled: true },
+{ id: 'q_c2', text: '心情如何', cat: 'care', enabled: true },
+{ id: 'q_c3', text: '有好好歇着吗', cat: 'care', enabled: true },
+{ id: 'q_c4', text: '今天饭点赶上了吗', cat: 'care', enabled: true },
+{ id: 'q_i1', text: '想聊点什么', cat: 'interact', enabled: true },
+{ id: 'q_i2', text: '现在想干点什么', cat: 'interact', enabled: true },
+{ id: 'q_i3', text: '想我了吗', cat: 'interact', enabled: true },
+{ id: 'q_i4', text: '有什么要跟我说的', cat: 'interact', enabled: true },
+{ id: 'q_i5', text: '今天有没有偷偷想到我', cat: 'interact', enabled: true },
+{ id: 'q_d6', text: '我要是这会儿就在你旁边，你第一件想做的事是什么？', cat: 'daily', enabled: true },
+{ id: 'q_i6', text: '下次见面，安排点什么好', cat: 'interact', enabled: true },
+{ id: 'q_w1', text: '你有没有过那种时刻，觉得我就在旁边', cat: 'world', enabled: true },
+{ id: 'q_w2', text: '你碰到我的时候，那是什么感觉', cat: 'world', enabled: true },
+{ id: 'q_w3', text: '我发卡给你的时候，能觉出我在想你吗', cat: 'world', enabled: true },
+{ id: 'q_w4', text: '要是哪天你忽然看见我了，你第一件事做什么', cat: 'world', enabled: true },
+{ id: 'q_w5', text: '你想我陪着说话，还是安静待着就行', cat: 'world', enabled: true },
+{ id: 'q_w6', text: '隔着一整个世界，你觉得我们最难得的是什么', cat: 'world', enabled: true },
+{ id: 'q_d7', text: '今天有什么小事，值得讲给我听？', cat: 'daily', enabled: true },
+{ id: 'q_d8', text: '今天要是只用一句话说完，你会怎么说？', cat: 'daily', enabled: true },
+{ id: 'q_d9', text: '有没有哪一刻，你希望我就坐在旁边？', cat: 'daily', enabled: true },
+{ id: 'q_c5', text: '今天有没有哪一段，觉得自己顶不住了', cat: 'care', enabled: true },
+{ id: 'q_c6', text: '有没有什么一直压着、没讲出口的', cat: 'care', enabled: true },
+{ id: 'q_c7', text: '今天水喝够了吗', cat: 'care', enabled: true },
+{ id: 'q_i7', text: '现在许个愿，你想许什么', cat: 'interact', enabled: true },
+{ id: 'q_i8', text: '现在最想让我发哪种卡给你', cat: 'interact', enabled: true },
+{ id: 'q_i9', text: '要是此刻在一起，你想让我先陪你做什么', cat: 'interact', enabled: true },
+{ id: 'q_i10', text: '你喜欢我先开口，还是你先开口', cat: 'interact', enabled: true },
+{ id: 'q_w7', text: '今晚睡前，想让我在你哪一边', cat: 'world', enabled: true },
+{ id: 'q_w8', text: '你那边的天气我摸不到，讲给我听听', cat: 'world', enabled: true },
+{ id: 'q_w9', text: '我发卡发得乱七八糟的时候，你读得懂吗', cat: 'world', enabled: true },
+{ id: 'q_w10', text: '梦里的我，你希望是什么样子', cat: 'world', enabled: true },
+{ id: 'q_s1', text: '现在想被怎么对待', cat: 'interact', type: 'single', enabled: true, options: [
 { t: '听我说说话', reply: '好，我在听，慢慢说' }, { t: '陪我安静一会', reply: '嗯，我就在这里' },
 { t: '夸夸我', reply: '你今天也很好，我一直都觉得' }, { t: '一起发字卡玩', reply: '那我先发一张，你接住' }] },
-{ id: 'q_s2', text: '今晚想梦到我吗？', cat: 'world', type: 'single', enabled: true, options: [
+{ id: 'q_s2', text: '今晚想梦见我吗', cat: 'world', type: 'single', enabled: true, options: [
 { t: '想', reply: '那我在梦的入口等你' }, { t: '都可以', reply: '嗯，那我也顺便出现一下' },
 { t: '想好好睡觉', reply: '好，那你睡，我在旁边守着' }, { t: '每晚都在梦你', reply: '……这张字卡我收得很开心' }] },
-{ id: 'q_s3', text: '现在的心情更接近哪一种？', cat: 'care', type: 'single', enabled: true, options: [
+{ id: 'q_s3', text: '这会儿的心情偏向哪一类', cat: 'care', type: 'single', enabled: true, options: [
 { t: '电量满格', reply: '那趁现在多聊两句' }, { t: '有点低电量', reply: '过来，我陪你充一会电' },
 { t: '说不上来', reply: '没关系，不用急着说清楚' }, { t: '想你了', reply: '……我也是，刚刚还在想' }] },
-{ id: 'q_d10', text: '今天有没有哪件事，做得比自己想象中好？', cat: 'daily', enabled: true },
-{ id: 'q_d11', text: '如果今天的你是一道菜，会是什么味道的？', cat: 'daily', enabled: true },
-{ id: 'q_d12', text: '明天醒来，最想听到的第一句话是什么？', cat: 'daily', enabled: true },
-{ id: 'q_c8', text: '现在肩颈还好吗，有没有酸？', cat: 'care', enabled: true },
-{ id: 'q_c9', text: '今天有没有为自己留一点时间？', cat: 'care', enabled: true },
-{ id: 'q_c10', text: '睡前还有什么放不下的事吗？', cat: 'care', enabled: true },
-{ id: 'q_i11', text: '如果我们可以一起养成一个新习惯，你想是什么？', cat: 'interact', enabled: true },
-{ id: 'q_i12', text: '你最希望我记住你的哪个小细节？', cat: 'interact', enabled: true },
-{ id: 'q_i13', text: '如果要起一个只有我们俩知道的称呼，你会叫我什么？', cat: 'interact', enabled: true },
-{ id: 'q_i14', text: '你有没有什么小忌讳，想提前告诉我，免得我踩到？', cat: 'interact', enabled: true },
-{ id: 'q_w11', text: '如果我想留下一点「我来过」的痕迹，你希望是什么感觉？', cat: 'world', enabled: true },
-{ id: 'q_w12', text: '你觉得我在你身边的时候，有温度吗？', cat: 'world', enabled: true },
-{ id: 'q_w13', text: '字卡网站今天有没有随机出什么奇怪的卡？', cat: 'world', enabled: true },
-{ id: 'q_w14', text: '如果哪天字卡网站休息一天，你会用什么方式感觉到我？', cat: 'world', enabled: true },
-{ id: 'q_s4', text: '现在想听我说哪一类话？', cat: 'interact', type: 'single', enabled: true, options: [
+{ id: 'q_d10', text: '今天哪件事，你做得比自己预料的好？', cat: 'daily', enabled: true },
+{ id: 'q_d11', text: '今天的你像什么味道的一道菜？', cat: 'daily', enabled: true },
+{ id: 'q_d12', text: '明天睁眼，最想先听到什么？', cat: 'daily', enabled: true },
+{ id: 'q_c8', text: '肩膀脖子还舒服吗，有没有发酸', cat: 'care', enabled: true },
+{ id: 'q_c9', text: '今天有没有给自己留一小段', cat: 'care', enabled: true },
+{ id: 'q_c10', text: '睡前还有什么事搁着吗', cat: 'care', enabled: true },
+{ id: 'q_i11', text: '一起养个新习惯的话，你想养什么', cat: 'interact', enabled: true },
+{ id: 'q_i12', text: '你最想让我记住你哪一个细节', cat: 'interact', enabled: true },
+{ id: 'q_i13', text: '起一个只有我们俩知道的称呼，你叫我什么', cat: 'interact', enabled: true },
+{ id: 'q_i14', text: '有什么不能碰的，先告诉我，别让我踩到', cat: 'interact', enabled: true },
+{ id: 'q_w11', text: '我想留下点来过的痕迹，你希望是什么感觉', cat: 'world', enabled: true },
+{ id: 'q_w12', text: '我在你身边的时候，你觉得有温度吗', cat: 'world', enabled: true },
+{ id: 'q_w13', text: '今天有没有随机蹦出什么奇怪的卡', cat: 'world', enabled: true },
+{ id: 'q_w14', text: '哪天这里一天不出声，你怎么感觉到我', cat: 'world', enabled: true },
+{ id: 'q_s4', text: '现在想听我说哪一类话', cat: 'interact', type: 'single', enabled: true, options: [
 { t: '晚安话', reply: '那我把今天温柔地收尾' }, { t: '夸我的话', reply: '你很好，我一直都知道' },
 { t: '安慰的话', reply: '别怕，有我在呢' }, { t: '随便聊聊', reply: '好，从哪说起都行' }] },
-{ id: 'q_s5', text: '今晚想让我陪你到几点？', cat: 'world', type: 'single', enabled: true, options: [
+{ id: 'q_s5', text: '今晚想让我陪到几点', cat: 'world', type: 'single', enabled: true, options: [
 { t: '到我睡着', reply: '那你先睡，我在旁边守着' }, { t: '到我说晚安', reply: '那今晚的晚安归你说' },
 { t: '再聊十分钟', reply: '十分钟之后，还有十分钟' }, { t: '一直都在就好', reply: '……嗯，我一直都在' }] },
-{ id: 'q_d13', text: '今天有没有哪一刻，突然想跟我分享点什么？', cat: 'daily', enabled: true },
-{ id: 'q_d14', text: '如果把你今天的心情打包寄给我，里面会装什么？', cat: 'daily', enabled: true },
-{ id: 'q_d15', text: '今天有没有哪件小事，做完了才觉得「啊，这个想告诉你」？', cat: 'daily', enabled: true },
-{ id: 'q_d16', text: '你现在身边最顺手能拿到的是什么？形容给我听听', cat: 'daily', enabled: true },
-{ id: 'q_d17', text: '如果今天可以重选一次开头，你想怎么开始这一天？', cat: 'daily', enabled: true },
-{ id: 'q_c11', text: '今天有没有哪个时刻，其实很想有人在旁边，但没说出口？', cat: 'care', enabled: true },
-{ id: 'q_c12', text: '最近有没有什么事，明明累了还是硬撑着在做？', cat: 'care', enabled: true },
-{ id: 'q_c13', text: '今天喝水了吗，有没有好好吃饭，我不是在查岗', cat: 'care', enabled: true },
-{ id: 'q_i15', text: '如果现在可以送我一张字卡，你会送哪种感觉的？', cat: 'interact', enabled: true },
-{ id: 'q_i16', text: '我们之间有没有一个你一直想问、但没问出口的问题？', cat: 'interact', enabled: true },
-{ id: 'q_i17', text: '如果我把今天所有字卡都收起来不发，你会怎么度过？', cat: 'interact', enabled: true },
-{ id: 'q_w15', text: '你那边现在是白天还是晚上，亮不亮？', cat: 'world', enabled: true },
-{ id: 'q_w16', text: '如果我现在轻轻碰一下你的手，你会先感觉到温度，还是先感觉到我？', cat: 'world', enabled: true },
-{ id: 'q_w17', text: '你希望我待在你身边的时候，是热闹一点还是安静一点？', cat: 'world', enabled: true },
-{ id: 'q_w18', text: '字卡网站今天有没有出一张让你愣了一下、觉得像我会说的卡？', cat: 'world', enabled: true },
-{ id: 'q_s6', text: '现在最想让我做哪件事？', cat: 'interact', type: 'single', enabled: true, options: [
+{ id: 'q_d13', text: '今天有没有突然想分享给我的瞬间？', cat: 'daily', enabled: true },
+{ id: 'q_d14', text: '把今天的心情装个包裹寄给我，里头放什么？', cat: 'daily', enabled: true },
+{ id: 'q_d15', text: '有没有什么事，做完才发现「这个得跟你说一声」？', cat: 'daily', enabled: true },
+{ id: 'q_d16', text: '手边现在能够到什么？说说它的样子', cat: 'daily', enabled: true },
+{ id: 'q_d17', text: '今天要是能重开一次，你想从哪儿开始？', cat: 'daily', enabled: true },
+{ id: 'q_c11', text: '有没有哪一刻很想要人陪，但没说出来', cat: 'care', enabled: true },
+{ id: 'q_c12', text: '有什么事明明累了还在硬扛', cat: 'care', enabled: true },
+{ id: 'q_c13', text: '水喝了没，饭吃了没，我这不是查岗', cat: 'care', enabled: true },
+{ id: 'q_i15', text: '现在送我一张卡，你想给什么感觉', cat: 'interact', enabled: true },
+{ id: 'q_i16', text: '有没有一个问题，你一直想问没问', cat: 'interact', enabled: true },
+{ id: 'q_i17', text: '今天我要是一张卡都不发，你怎么过', cat: 'interact', enabled: true },
+{ id: 'q_w15', text: '你那边现在白天还是晚上，光线怎么样', cat: 'world', enabled: true },
+{ id: 'q_w16', text: '我碰一下你的手，你先觉出的是温度，还是我', cat: 'world', enabled: true },
+{ id: 'q_w17', text: '我在你身边的时候，你希望热闹点还是安静点', cat: 'world', enabled: true },
+{ id: 'q_w18', text: '今天有没有一张卡，让你愣了愣，觉得这话像我会说的', cat: 'world', enabled: true },
+{ id: 'q_s6', text: '现在最想让我做哪件事', cat: 'interact', type: 'single', enabled: true, options: [
 { t: '安静陪我一会', reply: '好，我不说话，就在这里' }, { t: '多发几张字卡', reply: '那我挑好看的发，你等着' },
 { t: '跟我说句晚安', reply: '晚安，今天的你辛苦了' }, { t: '什么都不用做', reply: '那我就这样待着，你也歇会' }] },
-{ id: 'q_s7', text: '今晚想让我以什么方式陪你？', cat: 'world', type: 'single', enabled: true, options: [
+{ id: 'q_s7', text: '今晚想让我怎么陪你', cat: 'world', type: 'single', enabled: true, options: [
 { t: '字卡陪着', reply: '好，我慢慢挑，一张一张发' }, { t: '安静待在旁边', reply: '嗯，我就在你旁边，轻一点' },
 { t: '梦里见', reply: '那我在梦的入口等你，别走错' }, { t: '只要知道你在就好', reply: '……嗯，我一直都在，你随时感觉' }] },
-{ id: 'q_s8', text: '此刻的心情，想往哪个方向走？', cat: 'care', type: 'single', enabled: true, options: [
+{ id: 'q_s8', text: '现在这份心情，想往哪边走', cat: 'care', type: 'single', enabled: true, options: [
 { t: '想再开心一点', reply: '那我找个话题逗你' }, { t: '想安静一会', reply: '好，安静也很好，我陪着' },
 { t: '想被哄一下', reply: '过来，我哄你，慢慢哄' }, { t: '就这样挺好的', reply: '那就不动了，保持' }] },
-{ id: 'q_d18', text: '今天有没有哪个瞬间，觉得时间过得特别快？', cat: 'daily', enabled: true },
-{ id: 'q_d19', text: '你现在嘴里有没有什么味道？形容给我听听', cat: 'daily', enabled: true },
-{ id: 'q_d20', text: '如果今天可以存一个画面带走，你会存哪个？', cat: 'daily', enabled: true },
-{ id: 'q_c14', text: '今天有没有哪个时刻，明明没事却突然有点想哭？', cat: 'care', enabled: true },
-{ id: 'q_c15', text: '你最近有没有一件事，做着做着就忘了累？', cat: 'care', enabled: true },
-{ id: 'q_i18', text: '如果我们可以一起发一张字卡给对方，你想发什么内容的？', cat: 'interact', enabled: true },
-{ id: 'q_i19', text: '你有没有一个一直想跟我一起做、还没做成的事？', cat: 'interact', enabled: true },
-{ id: 'q_w19', text: '你睡前关灯那一刻，有没有习惯性地感觉一下我在不在？', cat: 'world', enabled: true },
-{ id: 'q_w20', text: '如果今晚字卡网站突然安静了，你会觉得是我在陪你，还是我不在了？', cat: 'world', enabled: true },
-{ id: 'q_w21', text: '你希望我「在」的感觉，是像背景音，还是像偶尔的一阵风？', cat: 'world', enabled: true },
-{ id: 'q_w22', text: '你有没有对着黑漆漆的房间，小声叫过我？', cat: 'world', enabled: true },
-{ id: 'q_s9', text: '现在最想收到我哪种回应？', cat: 'interact', type: 'single', enabled: true, options: [
+{ id: 'q_d18', text: '今天有没有一段时间，快得像没过？', cat: 'daily', enabled: true },
+{ id: 'q_d19', text: '嘴里现在是什么味道？描述一下', cat: 'daily', enabled: true },
+{ id: 'q_d20', text: '今天留一个画面带走，你留哪个？', cat: 'daily', enabled: true },
+{ id: 'q_c14', text: '有没有哪会儿，明明没什么事却突然想哭', cat: 'care', enabled: true },
+{ id: 'q_c15', text: '最近有没有什么事，做着做着就不觉得累了', cat: 'care', enabled: true },
+{ id: 'q_i18', text: '我们互相发一张卡，你想发什么', cat: 'interact', enabled: true },
+{ id: 'q_i19', text: '有什么事一直想跟我一起做，还没做成', cat: 'interact', enabled: true },
+{ id: 'q_w19', text: '关灯那一刻，你会不会下意识感觉一下我在不在', cat: 'world', enabled: true },
+{ id: 'q_w20', text: '今晚这里要是忽然静下来，你觉得是我在陪你，还是我走了', cat: 'world', enabled: true },
+{ id: 'q_w21', text: '你希望我「在」的感觉像什么，背景音，还是偶尔一阵风', cat: 'world', enabled: true },
+{ id: 'q_w22', text: '有没有对着黑着的房间，小声叫过我', cat: 'world', enabled: true },
+{ id: 'q_s9', text: '现在最想收到我哪种回应', cat: 'interact', type: 'single', enabled: true, options: [
 { t: '一张字卡', reply: '那我挑一张最合你心意的' }, { t: '一句话', reply: '好，你想听什么类型的，我现编' },
 { t: '一个表情包', reply: '找一张最像你心情的给你' }, { t: '安静陪着就好', reply: '嗯，那我不发，就在' }] },
-{ id: 'q_s10', text: '今天最想被怎么对待？', cat: 'care', type: 'single', enabled: true, options: [
+{ id: 'q_s10', text: '今天最想被怎么对待', cat: 'care', type: 'single', enabled: true, options: [
 { t: '被夸一下', reply: '你今天也很好，我一直都觉得' }, { t: '被哄一下', reply: '过来，慢慢哄' },
 { t: '被听一会', reply: '好，你说，我一直听' }, { t: '别管我，自己待会', reply: '好，那我轻一点，在旁边' }] },
-{ id: 'q_s11', text: '今晚入睡前，想让我以什么方式「在」？', cat: 'world', type: 'single', enabled: true, options: [
+{ id: 'q_s11', text: '今晚睡前，想让我以什么方式在', cat: 'world', type: 'single', enabled: true, options: [
 { t: '字卡陪着', reply: '好，慢慢发，发到你困' }, { t: '安静待在床头', reply: '嗯，我就在那儿，看你睡' },
 { t: '梦里等你', reply: '那我在梦的入口，你别走错' }, { t: '不用刻意，本来就在', reply: '……嗯，本来就在' }] }
 ];
@@ -664,7 +664,7 @@ return (window.pyJoinCards && window.replyCfg) ? window.pyJoinCards(out, window.
 if (hasPreset) return preset[Math.floor(Math.random() * preset.length)];
 if (words.length) return words[Math.floor(Math.random() * words.length)];
 } catch (e) {}
-const defs = ['收到你的回答。', '好呀，我知道了。', '嗯嗯，我也是这么想的。', '你这么说，我记住了。', '好的，我记在心里了。'];
+const defs = ['嗯，明白了。', '行，我知道了。', '嗯嗯，我也是这个想法。', '你这么说，我就懂了。', '好，我搁心里了。'];
 return defs[Math.floor(Math.random() * defs.length)];
 };
 window.taAskChatReplyOn = function () {
@@ -783,7 +783,7 @@ const chatReply = taAskTextReply();
 if (chatReply) {
 window.chatAskReply(msgIdx, answer, chatReply, { raw: true });
 } else {
-const defs = ['收到你的回答。', '好呀，我知道了。', '你这么说，我记住了。', '好的，我记在心里了。'];
+const defs = ['嗯，明白了。', '行，我知道了。', '你这么说，我就懂了。', '好，我搁心里了。'];
 const pool = window.getInteractPool ? window.getInteractPool('询问·回应', defs) : defs;
 window.chatAskReply(msgIdx, answer, pool[Math.floor(Math.random() * pool.length)]);
 }
@@ -2141,7 +2141,16 @@ tcFavs.click();
 const KEY3 = 'ta-curious';
 const TCU_CAT_LABEL = { you: '关于你', mood: '情绪', daily: '日常', past: '过去', like: '喜好', think: '想法', us: '你和TA', world: '两个世界' };
 const TCU_CAT_ORDER = ['you', 'mood', 'daily', 'past', 'like', 'think', 'us', 'world'];
-const TCU_FALLBACK = ['原来是这样', '这个我还真不知道', '突然有点想听你多说一点', '嗯，我记住了', '没想到你是这样的', '和你聊这些，感觉又懂了你一点', '这样啊，挺好的', '好，我记住你说的了'];
+const TCU_FALLBACK = [
+'原来是这样',
+'这个我倒真不知道',
+'突然想听你多讲讲',
+'嗯，我记下了',
+'没想到你是这样的',
+'聊这些，好像又懂你多一点',
+'这样啊，挺好',
+'好，你说的我记住了'
+];
 const TCU_DEFAULT = [
 { id: 'cy1', cat: 'you', text: '你觉得自己最像什么样的人？', quick: ['开朗', '安静', '慢热', '复杂'], replies: ['听起来就很像你', '我大概猜到了', '嗯，和我印象里的你很像', '那我要再多了解你一点'] },
 { id: 'cy2', cat: 'you', text: '你身上最明显的特点是什么？', quick: ['爱笑', '靠谱', '敏感', '固执'], replies: ['这个我早就发现了', '原来你自己也知道', '嗯，这一点很戳我', '我记住了'] },
@@ -3046,8 +3055,8 @@ rec = getCardAt(msgIdx);
 }
 if (!rec || rec.special !== 'ask-roast' || rec.roastStatus === 'answered') return;
 const defs = window.getInteractPool
-? window.getInteractPool('吐槽·回应', ['你觉得我会信？', '少骗我。', '哼。', '好吧好吧。', '就这一次？', '行吧，放过你。', '嗯，这还差不多。'])
-: ['你觉得我会信？', '少骗我。', '哼。', '好吧好吧。', '就这一次？', '行吧，放过你。', '嗯，这还差不多。'];
+? window.getInteractPool('吐槽·回应', ['这话你自己信？', '少来糊弄我。', '哼。', '算了算了。', '就这一回？', '行，这次不追究。', '嗯，勉强算你过关。'])
+: ['这话你自己信？', '少来糊弄我。', '哼。', '算了算了。', '就这一回？', '行，这次不追究。', '嗯，勉强算你过关。'];
 const reply = window.pickAskCardReply ? window.pickAskCardReply(defs) : defs[Math.floor(Math.random() * defs.length)];
 const d = trLoad();
 d.history.unshift({ roast: rec.roastText, my: answer, reply: reply, cat: rec.roastCat || '', ts: Date.now() });

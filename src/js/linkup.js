@@ -82,7 +82,11 @@
   let themeKey = 'fruit';
   function themeKinds() { return (THEMES[themeKey] || THEMES.fruit).kinds; }
   function themeBtn() { return document.getElementById('lk-theme'); }
-  const THINK_LINES = ['TA正在找能连的……', 'TA扫视着棋盘', 'TA歪头想了想'];
+  const THINK_LINES = [
+    'TA在找能连的……',
+    'TA扫了一遍棋盘',
+    'TA歪头想了会儿'
+  ];
   const TURN_MIN = 900, TURN_VAR = 800;
 
   const T = window.taFit || function (x) { return x; };
@@ -654,7 +658,12 @@
         result: '一起清完啦！',
         stats: lkStats
       } });
-      const fb = ['一起连完啦。', '好默契呀。', '最后几张好难找。', '再来一局？'];
+      const fb = [
+    '连完了。',
+    '还挺默契。',
+    '最后几张真难找。',
+    '再来一局？'
+  ];
       const pool = window.getInteractPool ? window.getInteractPool('游戏平局·回应', fb) : fb;
       const say = pool.length ? pool[Math.floor(Math.random() * pool.length)] : ''; // #1515 整组停用＝静默（连线）
       // FIX 2026-09-16：800ms 内切联系人桌面，回应会发进新桌面——回调前校验命名空间未变

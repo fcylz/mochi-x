@@ -10,11 +10,11 @@ var KEY_DAILY = 'period-daily';
 var KEY_NOTIFY = 'period-notify';
 var KEY_CARE = 'period-care-lines';
 var PERIOD_CARE_FALLBACK = [
-'今天经期第几天了？肚子还痛不痛，要不要帮你揉揉',
-'记得喝点红糖水，别碰凉的，听话',
-'经期别太累了，早点躺下休息，我陪你',
-'经期情绪低落是正常的，不是你的错，我在',
-'抱抱，今天什么都不做也行，就躺着'
+'今天第几天了？肚子还疼不疼，要不要揉揉',
+'记得喝点红糖水，别碰凉的',
+'别站太久，坐下歇歇',
+'热水袋还有吗',
+'别喝冰的'
 ];
 function cardGroupLines(name, fb) {
 try {

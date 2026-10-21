@@ -602,7 +602,14 @@ return data
 ? '<div class="' + c + '"><img src="' + attrEsc(data) + '" alt=""></div>'
 : '<div class="' + c + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.5-6 8-6s8 2 8 6"/></svg></div>';
 }
-const TA_COMMENT_POOL = ['收到啦~', '我看到了！', '这条动态好可爱', '记住啦', '我也是这么想的', '嗯嗯，说得对'];
+const TA_COMMENT_POOL = [
+'收到',
+'我看见了',
+'这条挺可爱',
+'记住了',
+'我也这么觉得',
+'嗯，说得在理'
+];
 function cardPool(cid) {
 const cards = cid ? (window.getCustomCardsFor ? window.getCustomCardsFor(cid) : []) : ((window.getCustomCards && window.getCustomCards()) || []);
 const pokeSet = (function () {
@@ -828,7 +835,16 @@ try {
 window.hydrateLibForCid(cid).then(function () { cb(); }, function () { cb(); });
 } catch (e) { cb(); }
 }
-const TA_REPLY_POOL = ['哈哈，好呀', '那你呢？', '嗯嗯，说得对', '我记住啦', '跟你分享过的', '被你发现了', '那很好呀', '我也这么觉得'];
+const TA_REPLY_POOL = [
+'哈哈，好啊',
+'那你呢？',
+'嗯，说得在理',
+'我记住了',
+'之前跟你说过',
+'让你发现了',
+'那挺好',
+'我也这么想'
+];
 function safeBg(v, key, s) {
 if (v && typeof v === 'string' && v.length > 500 * 1024) {
 try { s.remove(key); } catch (e) {}

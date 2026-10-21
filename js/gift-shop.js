@@ -971,8 +971,22 @@ try { return boxMarkClaimed(cid || (window.__activeCid || 'default'), boxId); } 
 window.giftBoxLiveRefresh = function () {
 try { if (giftboxPage && !giftboxPage.hidden) renderBox(); } catch (e) {}
 };
-const GIFT_REPLY_GENERIC = ['哇，谢谢亲爱的～', '你怎么知道我想要这个！', '收到啦，超喜欢❤', '破费啦，我好好收着', '嘿嘿，被你宠到了', '这份我喜欢，收下啦', '已经摆进心意柜最上层了'];
-const GIFT_REPLY_WISH = ['我的心愿被你实现啦！', '真的买下啦…说好不让你乱花钱的', '许愿时没想过真能收到，谢谢～', '心愿单少了一件，开心值满格', '你记得我的心愿，这个最戳我'];
+const GIFT_REPLY_GENERIC = [
+'哇，谢谢～',
+'你怎么知道我想要这个！',
+'收到了，很喜欢',
+'花这个钱干嘛，我好好收着',
+'被你宠到了',
+'这个我喜欢，收下了',
+'已经摆到最上面那层了'
+];
+const GIFT_REPLY_WISH = [
+'心愿真的实现了！',
+'真买了…不是说别乱花钱',
+'许愿的时候没敢想真能收到，谢谢',
+'心愿单少一件，心情满格',
+'你记得我的心愿，这个最戳'
+];
 function boxReplyDup(cid, boxId, who, text) {
 if (!boxId || !text) return false;
 try {

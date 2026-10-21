@@ -3671,7 +3671,14 @@ const gcPokeList = document.getElementById('gc-poke-list');
 const gcPokeNameEl = document.getElementById('gc-poke-name');
 const gcPokeCloseBtn = document.getElementById('gc-poke-close');
 let gcPokeCid = null;
-const GC_POKE_PRESETS = ['拍了拍你', '戳了戳你的脸蛋', '弹了一下你的额头', '揉了揉你的头发', '捏了捏你的脸颊', '拍了拍你的肩膀'];
+const GC_POKE_PRESETS = [
+'拍了拍你',
+'戳了戳你的脸',
+'弹了下你的额头',
+'揉了揉你的头发',
+'捏了捏你的脸',
+'拍了拍你的肩'
+];
 function gcPokeTextOnly(x) {
 if (typeof x !== 'string' || !x.trim()) return false;
 if (x.indexOf('data:') === 0 || x.indexOf('|||') >= 0 || x.indexOf('@@m:') >= 0) return false;

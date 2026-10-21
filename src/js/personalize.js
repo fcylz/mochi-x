@@ -9970,11 +9970,11 @@ bindAdjDrag(headTop, false); // #1534：拖标题行移动面板（与桌面美�
         syncFishUI();
         const taName = store.get('lbl-partner') || 'TA';
         const tease = [
-          '点这么快，老板就在身后吧？这次给你记成工作值啦。',
-          '被抓包了！摸鱼太频繁会被发现的——这条先算打工。',
-          '『你刚才是不是在疯狂点？』——嗯，被看见了。这次记工作值。',
-          '摸鱼要有节奏感。连续猛点会被抓的，这条算你打工。'
-        ][Math.floor(Math.random() * 4)];
+    '点这么快，老板就在后面吧？这条给你记成工作值。',
+    '被抓到了！摸鱼太勤容易露馅——这条算打工。',
+    '『刚才是不是在猛点？』——嗯，看见了。这次记工作值。',
+    '摸鱼得讲节奏。连点会被抓，这条算你打工。'
+  ][Math.floor(Math.random() * 4)];
         // v3.15.x：被抓包事件写入主页「摸鱼抓包」记录（双向之一：TA 抓到我）
         if (window.addFishCatchRecord) {
           try { window.addFishCatchRecord('ta', tease); } catch (e) {}
