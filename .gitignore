@@ -11,3 +11,6 @@ icon-backup-20260918/
 # tools/ 里是几百个本地校验脚本，与线上运行无关；只保留云端同步相关文档与脚本
 tools/*
 !tools/cloud-sync/
+# 例外：build.mjs 构建前「打回体检」硬依赖这一个脚本（缺失则 build 少一道防线，
+# 且 CI 的 node build.mjs 也会跟着失去校验），故强制入库。其余 verify-*.mjs 仍不入库。
+!tools/verify-worktree-revert.mjs
