@@ -30,9 +30,10 @@
       'https://gcore.jsdelivr.net/gh/fcylz/cy-chat@main/Word/word.json',
       'https://cdn.jsdelivr.net/gh/fcylz/cy-chat@main/Word/word.json'
     ],
+    // 表情把 gcore 排第一：见下面 IMG_HOST——只有 gcore 直出图片，JSON 也从它取最一致
     meme: [
-      'https://fastly.jsdelivr.net/gh/fcylz/cy-chat@main/Meme/meme.json',
       'https://gcore.jsdelivr.net/gh/fcylz/cy-chat@main/Meme/meme.json',
+      'https://fastly.jsdelivr.net/gh/fcylz/cy-chat@main/Meme/meme.json',
       'https://cdn.jsdelivr.net/gh/fcylz/cy-chat@main/Meme/meme.json'
     ],
     music: [
@@ -43,6 +44,26 @@
   };
 
   var KIND_LABEL = { word: '字卡', meme: '表情', music: '曲库' };
+
+  // ---- 图片直出源（2026-10-22 第二个坑，与上面第一个坑无关）----
+  // jsDelivr 只缓存文本资源（json/js/css），图片一律 301 跳 raw.githubusercontent.com。
+  // 实测：meme.json 在 fastly/gcore 都是 200，但同样的目录取图片时——
+  //   fastly.jsdelivr.net/.../xxx.jpg → 301 → raw.githubusercontent.com（国内网络不通）→ 0/78
+  //   gcore.jsdelivr.net/.../xxx.jpg  → 200 直出 image/jpeg|gif|png                    → 78/78
+  // 于是出现「云端表情拉取报非图片地址、导入失败」，且时好时坏（网络偶尔能连 raw 就成了）。
+  // 对策：展开出的图片直链，host 一律钉到 gcore，与 JSON 是从哪个镜像拉回来的无关——
+  // 老用户 localStorage 里记的 fastly 地址照样能救回来。
+  var IMG_HOST = 'gcore.jsdelivr.net';
+  function toImgHost(u) {
+    try {
+      var p = new URL(u);
+      if (/\.jsdelivr\.net$/i.test(p.hostname) && p.hostname.toLowerCase() !== IMG_HOST) {
+        p.hostname = IMG_HOST;
+        return p.href;
+      }
+    } catch (e) {}
+    return u;
+  }
 
   // 只认「单行 http(s) 的 .json 链接」：多行文本、图片/音频直链一律交回原导入逻辑
   function isCloudUrl(raw) {
@@ -117,7 +138,7 @@
       (c.items || []).forEach(function (it) {
         if (!it || !it.url) return;
         if (it.bytes && it.bytes > MAX_MEME_BYTES) return;
-        var u = absUrl(it.url, jsonUrl);
+        var u = toImgHost(absUrl(it.url, jsonUrl)); // 图片直出源钉到 gcore，见 IMG_HOST
         if (u) urls.push(u);
       });
       if (!urls.length) return;

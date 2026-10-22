@@ -4001,8 +4001,28 @@
   }
   // 抓取单个链接：st='data' 转存成功 / st='url' 回退按链接保存 / st='fail' 彻底失败
   // processData(dataUrl)→Promise<string|null>：压缩管线（null=过大或解码失败）
+  // jsDelivr 图片换源兜底：jsDelivr 只缓存文本资源，图片一律 301 跳 raw.githubusercontent.com
+  // （国内网络常不通，表现为「非图片地址 / 导入失败」，且时好时坏）。
+  // 云端表情展开时已把 host 钉到 gcore（见 cloud-import.js 的 IMG_HOST）；这里再兜一层，
+  // 救的是「手填的旧链接 / 早先记住的 fastly 地址」仍指向其它 jsDelivr 镜像的情况。
+  function jsdelivrImgAlt(u) {
+    try {
+      const p = new URL(u);
+      if (!/\.jsdelivr\.net$/i.test(p.hostname)) return '';
+      if (p.hostname.toLowerCase() === 'gcore.jsdelivr.net') return ''; // 已经是最好的源
+      p.hostname = 'gcore.jsdelivr.net';
+      return p.href;
+    } catch (e) { return ''; }
+  }
+
   function fetchLinkImage(url, processData) {
-    const once = (u) => new Promise((resolve) => {
+    // 只在「判失败」时换源重试一次：st==='url'（如超大 GIF 回退链接）换源也一样，别白等 12s
+    const onceAlt = (u) => once0(u).then(r => {
+      if (r.st !== 'fail') return r;
+      const alt = jsdelivrImgAlt(u);
+      return alt ? once0(alt) : r;
+    });
+    const once0 = (u) => new Promise((resolve) => {
       let settled = false;
       const finish = (r) => { if (!settled) { settled = true; clearTimeout(timer); resolve(r); } };
       // 12s 超时兜底：挂死的图床按「无法读取」回退链接保存，不拖死整批导入
@@ -4033,9 +4053,9 @@
     // v3.11.x：https 站点下 http 图链会被浏览器按混合内容拦截——先自动升级 https
     // 试抓（多数图床 http/https 同源同图），失败再按用户粘贴的原始链接兜底保存
     if (location.protocol === 'https:' && /^http:\/\//i.test(url)) {
-      return once(url.replace(/^http:\/\//i, 'https://')).then(r => r.st === 'data' ? r : once(url));
+      return onceAlt(url.replace(/^http:\/\//i, 'https://')).then(r => r.st === 'data' ? r : onceAlt(url));
     }
-    return once(url);
+    return onceAlt(url);
   }
   // 简易并发池（并发 4，保带宽不保序——上传路径的落库顺序本就取决于读取完成先后）
   // 结果按原始下标回填，Promise.all 结束后返回完整结果数组

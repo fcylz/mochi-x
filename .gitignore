@@ -8,6 +8,8 @@ icon-backup-20260918/
 .codebuddy/
 .codegraph/
 .zcodeignore
+# 本地 Agent 记忆/缓存，不进仓库
+.workbuddy/
 # tools/ 里是几百个本地校验脚本，与线上运行无关；只保留云端同步相关文档与脚本
 tools/*
 !tools/cloud-sync/

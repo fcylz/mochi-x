@@ -11,8 +11,8 @@ word: [
 'https://cdn.jsdelivr.net/gh/fcylz/cy-chat@main/Word/word.json'
 ],
 meme: [
-'https://fastly.jsdelivr.net/gh/fcylz/cy-chat@main/Meme/meme.json',
 'https://gcore.jsdelivr.net/gh/fcylz/cy-chat@main/Meme/meme.json',
+'https://fastly.jsdelivr.net/gh/fcylz/cy-chat@main/Meme/meme.json',
 'https://cdn.jsdelivr.net/gh/fcylz/cy-chat@main/Meme/meme.json'
 ],
 music: [
@@ -22,6 +22,17 @@ music: [
 ]
 };
 var KIND_LABEL = { word: '字卡', meme: '表情', music: '曲库' };
+var IMG_HOST = 'gcore.jsdelivr.net';
+function toImgHost(u) {
+try {
+var p = new URL(u);
+if (/\.jsdelivr\.net$/i.test(p.hostname) && p.hostname.toLowerCase() !== IMG_HOST) {
+p.hostname = IMG_HOST;
+return p.href;
+}
+} catch (e) {}
+return u;
+}
 function isCloudUrl(raw) {
 var s = String(raw || '').trim();
 if (!s || /[\r\n]/.test(s)) return false;
@@ -81,7 +92,7 @@ var urls = [];
 (c.items || []).forEach(function (it) {
 if (!it || !it.url) return;
 if (it.bytes && it.bytes > MAX_MEME_BYTES) return;
-var u = absUrl(it.url, jsonUrl);
+var u = toImgHost(absUrl(it.url, jsonUrl)); // 图片直出源钉到 gcore，见 IMG_HOST
 if (u) urls.push(u);
 });
 if (!urls.length) return;

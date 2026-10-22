@@ -3167,8 +3167,22 @@ return { g: m && m[1].trim() ? m[1].trim() : '', url: url };
 })
 .filter(x => /^https?:\/\//i.test(x.url));
 }
+function jsdelivrImgAlt(u) {
+try {
+const p = new URL(u);
+if (!/\.jsdelivr\.net$/i.test(p.hostname)) return '';
+if (p.hostname.toLowerCase() === 'gcore.jsdelivr.net') return ''; // 已经是最好的源
+p.hostname = 'gcore.jsdelivr.net';
+return p.href;
+} catch (e) { return ''; }
+}
 function fetchLinkImage(url, processData) {
-const once = (u) => new Promise((resolve) => {
+const onceAlt = (u) => once0(u).then(r => {
+if (r.st !== 'fail') return r;
+const alt = jsdelivrImgAlt(u);
+return alt ? once0(alt) : r;
+});
+const once0 = (u) => new Promise((resolve) => {
 let settled = false;
 const finish = (r) => { if (!settled) { settled = true; clearTimeout(timer); resolve(r); } };
 const timer = setTimeout(() => finish({ st: 'url', v: u }), 12000);
@@ -3194,9 +3208,9 @@ finish(/^notimage|^http/.test(msg) ? { st: 'fail', v: u } : { st: 'url', v: u })
 });
 });
 if (location.protocol === 'https:' && /^http:\/\//i.test(url)) {
-return once(url.replace(/^http:\/\//i, 'https://')).then(r => r.st === 'data' ? r : once(url));
+return onceAlt(url.replace(/^http:\/\//i, 'https://')).then(r => r.st === 'data' ? r : onceAlt(url));
 }
-return once(url);
+return onceAlt(url);
 }
 function runLinkPool(urls, worker) {
 const out = new Array(urls.length);

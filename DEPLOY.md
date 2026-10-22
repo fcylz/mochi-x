@@ -84,6 +84,24 @@ https://<你的用户名>.github.io/<仓库名>/
 - 想手动确认某个地址通不通：`curl.exe -s -o NUL -w "%{http_code} %{size_download}\n" <地址>`
 - 「没有可导入的内容」：json 结构不对（应为 `categories.{key}.items[]` 或曲库的数组）
 - 表情导入慢/部分失败：走的是原有链接导入管线，图床跨域失败会按链接保存；单张超过 1MB 会自动跳过
+
+### 「云端表情报非图片地址 / 导入失败」——已修，原因在这
+
+**jsDelivr 只缓存文本资源，图片一律 301 跳 `raw.githubusercontent.com`。** 所以「json 能取到」不代表「图片能取到」：
+
+| 源 | `meme.json` | 图片 `Meme/images/...` |
+|---|---|---|
+| `fastly.jsdelivr.net` | 200 ✅ | **301 → raw.githubusercontent.com**（国内不通）→ **0/78** ❌ |
+| `gcore.jsdelivr.net` | 200 ✅ | **200 直出 image/jpeg·gif·png** → **78/78** ✅ |
+
+表现为**时好时坏**：网络恰好连得上 `raw.githubusercontent.com` 的那次就成功了，连不上就整批报「非图片地址」。
+
+处理办法（已在代码里）：
+
+1. `src/js/cloud-import.js` 新增 `IMG_HOST`：**展开出的图片直链 host 一律钉到 `gcore.jsdelivr.net`**，与 json 是从哪个镜像拉回来的无关（老用户早先记住的 fastly 地址照样能救回来）
+2. 表情的默认地址顺序改成 `gcore → fastly → cdn`，json 也从直出源取，两头一致
+3. `src/js/chatcard.js` 的 `fetchLinkImage` 加一层换源兜底：jsDelivr 图片判失败时自动换 `gcore` 重试一次（`st==='url'` 的超大 GIF 不重试，免得白等 12s）
+4. `tools/cloud-sync/smoke-cloud-import.mjs` 加了两条回归断言：图片 host 必须是 gcore + 抽样真取必须是 `image/*`
 - 音乐导入后没出现：音乐页刷新一次即可（导入后已落库）
 - 按钮不见了：【云端字卡】只在文字类分类显示、【云端表情】只在【表情包】【图片】显示，切一下分类即可
 - 想确认改动有没有进产物：`js/cloud-import.js` 里能搜到 `fastly.jsdelivr.net` 与 `fetchAny`，且 `index.html` 里能搜到 `cc-cloud-word` / `cc-cloud-meme` / `music-cloud`

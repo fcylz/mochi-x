@@ -80,6 +80,22 @@ assert('表情展开：分组头 + 绝对直链',
   memeLines[0] === '【云端·反应表情】' && /^https:\/\/.+\.(jpg|png|gif|jpeg)$/i.test(memeLines[1]),
   memeLines[1]);
 assert('表情展开：路径不重复（无 /Meme/Meme/）', memeText.indexOf('/Meme/Meme/') < 0 && /\/Meme\/images\/reactions\//.test(memeLines[1]));
+// 回归（2026-10-22 第二个坑）：jsDelivr 只缓存文本资源，图片一律 301 跳
+// raw.githubusercontent.com（国内不通）→ 报「非图片地址、导入失败」且时好时坏。
+// 所以展开出的图片直链必须钉在直出源 gcore，且真要能取到 image/*。
+assert('表情图片钉在直出源（不跟随 301）', new URL(memeLines[1]).hostname === 'gcore.jsdelivr.net', new URL(memeLines[1]).hostname);
+{
+  const imgUrls = memeText.split('\n').filter(l => /^https:/i.test(l));
+  const probe = [imgUrls[0], imgUrls[Math.floor(imgUrls.length / 2)], imgUrls[imgUrls.length - 1]];
+  let imgOk = 0;
+  for (const u of probe) {
+    try {
+      const r = await fetch(u);
+      if (r.ok && /^image\//i.test(r.headers.get('content-type') || '')) imgOk++;
+    } catch (e) { /* 记为失败 */ }
+  }
+  assert('表情图片抽样真取得到 image/*', imgOk === probe.length, imgOk + '/' + probe.length);
+}
 
 const musicRes = await retry(() => CI.fetchAny('music', ''));
 const musicText = musicRes.text;
