@@ -2,15 +2,17 @@
 // ①Node 层：直接跑 src/js/cloud-import.js（桩掉 window/localStorage/fetch），
 //   验证链接识别、三份云端数据取回与展开格式、上次地址记忆
 // ②浏览器层（可选）：装了 playwright 才跑——起本地静态服务打开 index.html，
-//   走「字卡库 → 公用字卡 → 批量导入 → 粘贴云端链接 → 确定」，验证真的落库
+//   走「字卡库 → 公用字卡 → 点工具栏【云端字卡】」，验证真的一键落库（不输入链接）
 // 用法：node tools/cloud-sync/smoke-cloud-import.mjs
 import fs from 'node:fs';
 import path from 'node:path';
 
-const ROOT = 'd:/mochi';
+const ROOT = 'd:/mochi-x';
 const SRC = path.join(ROOT, 'src', 'js', 'cloud-import.js');
-const WORD = 'https://cdn.jsdelivr.net/gh/fcylz/cy-chat@main/Word/word.json';
-const MEME = 'https://cdn.jsdelivr.net/gh/fcylz/cy-chat@main/Meme/meme.json';
+// 2026-10-22 起地址不再写死在脚本里：模块内置多镜像（fastly/gcore/cdn.jsdelivr.net），
+// fetchAny() 按顺序回退。这里直接用模块自己的 defaults 做烟囱，改镜像不用同步改脚本。
+const WORD = 'https://fastly.jsdelivr.net/gh/fcylz/cy-chat@main/Word/word.json';
+const MEME = 'https://fastly.jsdelivr.net/gh/fcylz/cy-chat@main/Meme/meme.json';
 const MUSIC = 'https://fcylz.github.io/cy-music/index.json';
 
 // ---------- ① Node 层 ----------
@@ -19,8 +21,16 @@ const fakeLS = {
   getItem: k => (store.has(k) ? store.get(k) : null),
   setItem: (k, v) => store.set(k, String(v))
 };
+// 模块末尾会绑按钮，需要最小 DOM 桩；getElementById 返回 null＝按钮不存在，直接跳过绑定
+const fakeDoc = {
+  readyState: 'complete',
+  addEventListener() {},
+  getElementById() { return null; },
+  createElement() { return {}; },
+  head: {}
+};
 const win = {};
-new Function('window', 'localStorage', 'fetch', 'URL', fs.readFileSync(SRC, 'utf8'))(win, fakeLS, fetch, URL);
+new Function('window', 'localStorage', 'fetch', 'URL', 'document', fs.readFileSync(SRC, 'utf8'))(win, fakeLS, fetch, URL, fakeDoc);
 const CI = win.mochiCloudImport;
 
 const assert = (name, ok, extra) => console.log((ok ? '✅ ' : '❌ ') + name + (extra ? ' — ' + extra : ''));
@@ -36,27 +46,51 @@ assert('模块挂载 window.mochiCloudImport', !!CI);
 assert('识别云端 json 链接', CI.isCloudUrl(WORD) && CI.isCloudUrl(MUSIC));
 assert('不放行多行文本/图片直链',
   !CI.isCloudUrl('https://a.png\nhttps://b.png') && !CI.isCloudUrl('https://x.com/a.jpg') && !CI.isCloudUrl('【日常】\n你好'));
+assert('内置默认地址：三库都有且不止一个镜像',
+  ['word', 'meme', 'music'].every(k => Array.isArray(CI.defaults[k]) && CI.defaults[k].length >= 2));
+assert('取址顺序：上次成功 > 自定义 > 默认镜像', (() => {
+  const u = CI.resolveUrls('word', '');
+  return u.length >= 3 && /\.json$/.test(u[0]);
+})());
+// 全部镜像不可达时：必须报「已试 N 个」而不是挂住（单个镜像 8s 超时）。
+// 放在真正拉取之前：此时还没记住任何地址，resolveUrls 只会返回被换成坏地址的默认列表。
+const badBefore = CI.defaults.word.slice();
+CI.defaults.word = ['https://127.0.0.1:1/a.json', 'https://127.0.0.1:1/b.json'];
+try {
+  await CI.fetchAny('word', '');
+  assert('全镜像失败时抛出错误', false, '竟然成功了');
+} catch (e) {
+  assert('全镜像失败：错误带已试数量', /已试 2 个/.test(e.message || ''), e.message);
+}
+CI.defaults.word = badBefore;
 
-const wordText = await retry(() => CI.fetch(WORD, 'word'));
+// 用 fetchAny 走真实网络：验证「多镜像顺序回退」这条主线真的能拿到数据
+const wordRes = await retry(() => CI.fetchAny('word', ''));
+const wordText = wordRes.text;
 const wordLines = wordText.split('\n');
+assert('字卡一键拉取（fetchAny 命中镜像）', !!wordText, '命中 ' + wordRes.url + '，试了 ' + wordRes.tried + ' 个');
 assert('字卡展开：含【云端·自定义回复】分组头', wordLines[0] === '【云端·自定义回复】', wordLines[0]);
 assert('字卡展开：条数 > 1000', wordLines.length > 1000, wordLines.length + ' 行');
 
-const memeText = await retry(() => CI.fetch(MEME, 'meme'));
+const memeRes = await retry(() => CI.fetchAny('meme', ''));
+const memeText = memeRes.text;
 const memeLines = memeText.split('\n');
+assert('表情一键拉取（fetchAny 命中镜像）', !!memeText, '命中 ' + memeRes.url + '，试了 ' + memeRes.tried + ' 个');
 assert('表情展开：分组头 + 绝对直链',
-  memeLines[0] === '【云端·反应表情】' && /^https:\/\/cdn\.jsdelivr\.net\/.+\.(jpg|png|gif|jpeg)$/i.test(memeLines[1]),
+  memeLines[0] === '【云端·反应表情】' && /^https:\/\/.+\.(jpg|png|gif|jpeg)$/i.test(memeLines[1]),
   memeLines[1]);
 assert('表情展开：路径不重复（无 /Meme/Meme/）', memeText.indexOf('/Meme/Meme/') < 0 && /\/Meme\/images\/reactions\//.test(memeLines[1]));
 
-const musicText = await retry(() => CI.fetch(MUSIC, 'music'));
+const musicRes = await retry(() => CI.fetchAny('music', ''));
+const musicText = musicRes.text;
 const musicBlocks = musicText.split(/\n\s*\n/).filter(Boolean);
+assert('曲库一键拉取（fetchAny 命中镜像）', !!musicText, '命中 ' + musicRes.url + '，试了 ' + musicRes.tried + ' 个');
 assert('曲库展开：分块且含 歌曲名称/歌手/音乐直链URL',
   musicBlocks.length > 50 && /^歌曲名称：.+/.test(musicBlocks[0]) && /音乐直链URL：https:\/\//.test(musicBlocks[0]),
   musicBlocks.length + ' 首');
 
-assert('记住上次地址（按用途分记）',
-  CI.lastUrl('word') === WORD && CI.lastUrl('music') === MUSIC && CI.pickUrl('', 'word', true) === WORD);
+assert('记住命中镜像（按用途分记）',
+  !!CI.lastUrl('word') && !!CI.lastUrl('music') && CI.pickUrl('', 'word', true) === CI.lastUrl('word'));
 assert('留空且不记住时不会误用', CI.pickUrl('', 'meme', false) === '' || !CI.lastUrl('meme'));
 
 console.log('\n曲库首块：\n' + musicBlocks[0]);
@@ -98,10 +132,8 @@ try {
   await page.waitForTimeout(600);
   await page.click('#li-custom-cards-public', { timeout: 5000 });
   await page.waitForTimeout(2000);
-  await page.click('#cc-import', { timeout: 5000 });
-  await page.waitForSelector('#modal-textarea', { state: 'visible', timeout: 5000 });
-  await page.fill('#modal-textarea', WORD);
-  await page.click('#modal-ok', { timeout: 5000 });
+  // 一键拉取：直接点工具栏「云端字卡」，不弹输入框、不粘链接
+  await page.click('#cc-cloud-word', { timeout: 5000 });
   await page.waitForTimeout(25000);
   console.log('字卡落库：', JSON.stringify(await page.evaluate(() => {
     const raw = localStorage.getItem('xy-home-v2:cc-groups-public') || '';

@@ -1585,6 +1585,155 @@
     });
   }
 
+  // ===== 音乐批量导入解析主管线（模块级）=====
+  // 2026-10-22：从 openBatch「开始导入」回调的闭包里原样提升出来，给弹窗与音乐页
+  // 「云端曲库」按钮共用同一条解析/落库路径（去重/歌单归属/刷新/toast 一字不改），
+  // 不另起一套——本族历史教训是「手抄必漏」。
+  function smImportBatchText(text, targetPl) {
+    // v3.8.x：无标签纯链接模式——整段没有「名称：xxx」式标签时，按每行一个
+    // 网易云 ID / 音乐链接导入（标签行以 歌曲名称：/name: 开头，链接含 :// 不算标签）
+    const rawLines = text.split(/\r?\n+/).map(s => s.trim()).filter(Boolean);
+    // v3.8.x：歌单分享链接识别（含 playlist?id= 的行单独走歌单导入）
+    const plIds = [];
+    rawLines.forEach(l => { const pid = extractPlaylistId(l); if (pid && plIds.indexOf(pid) < 0) plIds.push(pid); });
+    const isLabelLine = (l) => {
+      if (/^https?:\/\//i.test(l) || /^\/\//.test(l)) return false;
+      return /^[^:=：＝/]+?[:：＝=]\s*\S+/.test(l);
+    };
+    const hasLabels = rawLines.some(isLabelLine);
+    const units = hasLabels
+      ? text.split(/\n\s*\n/).map(b => ({ lines: b.split('\n').map(s => s.trim()).filter(Boolean), plain: false }))
+      : rawLines.filter(l => !extractPlaylistId(l)).map(l => ({ lines: [l], plain: true }));
+    let added = 0;
+    units.forEach((unit, ui) => {
+      let name = '', artist = '', url = '';
+      if (unit.plain) {
+        url = unit.lines[0];
+      } else {
+        unit.lines.forEach(line => {
+          const sepMatch = line.match(/^([^:=]+?)(?:[:：＝=])\s*(.+)$/);
+          if (!sepMatch) {
+            // v3.9.x：标签块里混入的裸链接/纯数字行直接当作 URL 值（无需标签，
+            // 用户可在标签之间顺手贴一条网易云链接/ID）
+            const t = line.trim();
+            if (/^\d+$/.test(t) || /^https?:\/\//i.test(t)) url = t;
+            return;
+          }
+          const key = sepMatch[1].replace(/\s+/g, '').toLowerCase();
+          const val = sepMatch[2].trim();
+          if (/^(歌曲名称|歌名|名称|name|歌曲)$/.test(key)) name = val;
+          else if (/^(歌手|艺术家|艺人|artist|演唱)$/.test(key)) artist = val;
+          else if (/^(音乐直链url|音乐直链|音乐链接|链接|直链|url|音乐url|link)$/.test(key)) url = val;
+        });
+      }
+      if (!url) return;
+      if (extractPlaylistId(url)) return; // 歌单链接单独走歌单导入，不当作单曲
+      // v3.6.x：URL 栏支持纯数字网易云 ID / 完整网易云链接 / 任意 mp3 直链——
+      // 统一提取数字 ID 并规范化成网易云直链（与「链接添加」一致）
+      // v3.9.x：改用统一提取函数（支持 #/song?id=xxx、outer/url?id=xxx.mp3 等格式）
+      const neteaseId = extractNeteaseSongId(url);
+      if (neteaseId) {
+        url = neteaseMetingUrl(neteaseId);
+        if (!name) name = '网易云音乐-' + neteaseId; // 只填数字时自动补默认名
+      }
+      if (!name) {
+        // 纯链接模式且非网易云 ID：取链接文件名当歌名，取不到给默认名
+        const fn = (url.match(/\/([^/?#]+?)(?:\.[^/.?#]+)?$/) || [])[1];
+        name = fn || '链接音乐';
+      }
+      if (!/^(https?:\/\/|file:\/\/|data:|\/)/i.test(url)) return;
+      // FIX 2026-09-22 #1036：批量导入同样先升级 http→https（与单条链接添加同口径）
+      if (!neteaseId && /^http:\/\//i.test(url)) url = url.replace(/^http:\/\//i, 'https://');
+      const nid = 'sm_batch_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6) + '_' + ui;
+      const item = { id: nid, neteaseId: neteaseId || '', name: name, artist: artist, url: url, source: 'url', duration: 0, playlistId: targetPl || 'default', addedAt: Date.now() };
+      library.push(item);
+      added++;
+      // v3.6.x：数字 ID 自动识别歌曲名（与「链接添加」一致，识别到后覆盖默认名）
+      if (neteaseId) {
+        // v3.9.x：后台探测时长 + 拉取歌曲封面
+        enqueueDurProbe(item);
+        ensureSongCover(item);
+        fetchNeteaseInfo(neteaseId, info => {
+          const mm = library.find(x => x.id === nid);
+          if (mm && info && info.name) {
+            mm.name = info.name;
+            if (info.artist) mm.artist = info.artist;
+            if (info.duration && !mm.duration) { mm.duration = info.duration; updateDurUI(mm.id, mm.duration); }
+            saveLibrary();
+            renderPage();
+          }
+        });
+      } else if (isNetShortLink(url)) {
+        // 网易云分享短链：批量导入同样异步解析出真实歌曲 ID 后复位（失败保持现状）。
+        resolveNetShortLink(url, rid => {
+          if (!rid) return;
+          const bm = library.find(x => x.id === nid);
+          if (bm) {
+            bm.neteaseId = rid;
+            bm.url = neteaseMetingUrl(rid);
+            enqueueDurProbe(bm);
+            ensureSongCover(bm);
+            fetchNeteaseInfo(rid, info => {
+              const bm2 = library.find(x => x.id === nid);
+              if (bm2 && info && info.name) {
+                if (!bm2.name || /^链接音乐$/.test(bm2.name)) bm2.name = info.name;
+                if (info.artist) bm2.artist = info.artist;
+                if (info.duration && !bm2.duration) bm2.duration = info.duration;
+                saveLibrary();
+                renderPage();
+              } else {
+                saveLibrary();
+                renderPage();
+              }
+            });
+          }
+        });
+      }
+    });
+    if (!added && !plIds.length) { toast('没有识别到有效歌曲，请检查格式'); return; }
+    // v3.8.x：含歌单链接 → 歌单与单曲都导入后统一提示
+    if (plIds.length) {
+      toast('正在导入 ' + plIds.length + ' 个歌单…');
+      importPlaylistIds(plIds, (res) => {
+        saveLibrary();
+        closeTCPanel();
+        renderPage();
+        let msg = (added ? '已导入 ' + added + ' 首音乐 + ' : '已导入 ');
+        if (res.total) {
+          msg += res.plOk + ' 个歌单 / ' + res.total + ' 首';
+        } else {
+          msg += '0 首歌单（可能私密/已失效/被浏览器拦截';
+          // v3.26.x 收口第二批：UA 特判改读 device.js env.apiBlockedHint（唯一嗅探处）
+          if (((window.mochiDevice || {}).env || {}).apiBlockedHint) msg += '，当前浏览器可能拦截了音乐 API，可换用 Safari 重试';
+          else msg += '，可稍后重试';
+          msg += '）';
+        }
+        if (res.skipped) msg += '（跳过已有 ' + res.skipped + ' 首）';
+        if (res.vip) msg += '（VIP 歌曲 ' + res.vip + ' 首未导入）';
+        if (res.miss) msg += '（数据源受限，另有 ' + res.miss + ' 首未取到，稍后重导同一链接可补齐）';
+        if (res.plFail && res.total) msg += '；' + res.plFail + ' 个歌单失败（可能私密/已失效/被拦截）';
+        toast(msg);
+      }, targetPl);
+      return;
+    }
+    saveLibrary();
+    closeTCPanel();
+    renderPage();
+    toast('已导入 ' + added + ' 首音乐');
+  }
+  // 关面板的小工具：云端曲库按钮不开面板，此时 #tc-mask 可能压根没打开过
+  function closeTCPanel() {
+    try {
+      const m = document.getElementById('tc-mask');
+      if (m) m.hidden = true;
+    } catch (e) {}
+  }
+  // 云端曲库按钮入口：走与弹窗「开始导入」完全相同的目标歌单解析（resolveTargetPlaylist，
+  // 没有下拉框时回落 'default'＝未分类）
+  window.smCloudImportBatch = function (text) {
+    resolveTargetPlaylist((tp) => { smImportBatchText(text, tp); });
+  };
+
   // 批量导入（格式：歌曲名称 / 歌手 / 音乐直链URL，每首空一行）
   // v3.6.x：音乐直链URL 栏可直接填网易云数字 ID——自动拼装成网易云直链导入
   function openBatch() {
@@ -1602,138 +1751,7 @@
       const CI = window.mochiCloudImport;
       const cloudUrl = CI ? CI.pickUrl(raw, 'music', true) : '';
       if (!raw && !cloudUrl) { toast('请输入内容'); return; }
-      const runBatch = (text, targetPl) => {
-        // v3.8.x：无标签纯链接模式——整段没有「名称：xxx」式标签时，按每行一个
-        // 网易云 ID / 音乐链接导入（标签行以 歌曲名称：/name: 开头，链接含 :// 不算标签）
-        const rawLines = text.split(/\r?\n+/).map(s => s.trim()).filter(Boolean);
-        // v3.8.x：歌单分享链接识别（含 playlist?id= 的行单独走歌单导入）
-        const plIds = [];
-        rawLines.forEach(l => { const pid = extractPlaylistId(l); if (pid && plIds.indexOf(pid) < 0) plIds.push(pid); });
-        const isLabelLine = (l) => {
-          if (/^https?:\/\//i.test(l) || /^\/\//.test(l)) return false;
-          return /^[^:=：＝/]+?[:：＝=]\s*\S+/.test(l);
-        };
-        const hasLabels = rawLines.some(isLabelLine);
-        const units = hasLabels
-          ? text.split(/\n\s*\n/).map(b => ({ lines: b.split('\n').map(s => s.trim()).filter(Boolean), plain: false }))
-          : rawLines.filter(l => !extractPlaylistId(l)).map(l => ({ lines: [l], plain: true }));
-        let added = 0;
-        units.forEach((unit, ui) => {
-          let name = '', artist = '', url = '';
-          if (unit.plain) {
-            url = unit.lines[0];
-          } else {
-            unit.lines.forEach(line => {
-              const sepMatch = line.match(/^([^:=]+?)(?:[:：＝=])\s*(.+)$/);
-              if (!sepMatch) {
-                // v3.9.x：标签块里混入的裸链接/纯数字行直接当作 URL 值（无需标签，
-                // 用户可在标签之间顺手贴一条网易云链接/ID）
-                const t = line.trim();
-                if (/^\d+$/.test(t) || /^https?:\/\//i.test(t)) url = t;
-                return;
-              }
-              const key = sepMatch[1].replace(/\s+/g, '').toLowerCase();
-              const val = sepMatch[2].trim();
-              if (/^(歌曲名称|歌名|名称|name|歌曲)$/.test(key)) name = val;
-              else if (/^(歌手|艺术家|艺人|artist|演唱)$/.test(key)) artist = val;
-              else if (/^(音乐直链url|音乐直链|音乐链接|链接|直链|url|音乐url|link)$/.test(key)) url = val;
-            });
-          }
-          if (!url) return;
-          if (extractPlaylistId(url)) return; // 歌单链接单独走歌单导入，不当作单曲
-          // v3.6.x：URL 栏支持纯数字网易云 ID / 完整网易云链接 / 任意 mp3 直链——
-          // 统一提取数字 ID 并规范化成网易云直链（与「链接添加」一致）
-          // v3.9.x：改用统一提取函数（支持 #/song?id=xxx、outer/url?id=xxx.mp3 等格式）
-          const neteaseId = extractNeteaseSongId(url);
-          if (neteaseId) {
-            url = neteaseMetingUrl(neteaseId);
-            if (!name) name = '网易云音乐-' + neteaseId; // 只填数字时自动补默认名
-          }
-          if (!name) {
-            // 纯链接模式且非网易云 ID：取链接文件名当歌名，取不到给默认名
-            const fn = (url.match(/\/([^/?#]+?)(?:\.[^/.?#]+)?$/) || [])[1];
-            name = fn || '链接音乐';
-          }
-          if (!/^(https?:\/\/|file:\/\/|data:|\/)/i.test(url)) return;
-          // FIX 2026-09-22 #1036：批量导入同样先升级 http→https（与单条链接添加同口径）
-          if (!neteaseId && /^http:\/\//i.test(url)) url = url.replace(/^http:\/\//i, 'https://');
-          const nid = 'sm_batch_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6) + '_' + ui;
-          const item = { id: nid, neteaseId: neteaseId || '', name: name, artist: artist, url: url, source: 'url', duration: 0, playlistId: targetPl || 'default', addedAt: Date.now() };
-          library.push(item);
-          added++;
-          // v3.6.x：数字 ID 自动识别歌曲名（与「链接添加」一致，识别到后覆盖默认名）
-          if (neteaseId) {
-            // v3.9.x：后台探测时长 + 拉取歌曲封面
-            enqueueDurProbe(item);
-            ensureSongCover(item);
-            fetchNeteaseInfo(neteaseId, info => {
-              const mm = library.find(x => x.id === nid);
-              if (mm && info && info.name) {
-                mm.name = info.name;
-                if (info.artist) mm.artist = info.artist;
-                if (info.duration && !mm.duration) { mm.duration = info.duration; updateDurUI(mm.id, mm.duration); }
-                saveLibrary();
-                renderPage();
-              }
-            });
-          } else if (isNetShortLink(url)) {
-            // 网易云分享短链：批量导入同样异步解析出真实歌曲 ID 后复位（失败保持现状）。
-            resolveNetShortLink(url, rid => {
-              if (!rid) return;
-              const bm = library.find(x => x.id === nid);
-              if (bm) {
-                bm.neteaseId = rid;
-                bm.url = neteaseMetingUrl(rid);
-                enqueueDurProbe(bm);
-                ensureSongCover(bm);
-                fetchNeteaseInfo(rid, info => {
-                  const bm2 = library.find(x => x.id === nid);
-                  if (bm2 && info && info.name) {
-                    if (!bm2.name || /^链接音乐$/.test(bm2.name)) bm2.name = info.name;
-                    if (info.artist) bm2.artist = info.artist;
-                    if (info.duration && !bm2.duration) bm2.duration = info.duration;
-                    saveLibrary();
-                    renderPage();
-                  } else {
-                    saveLibrary();
-                    renderPage();
-                  }
-                });
-              }
-            });
-          }
-        });
-        if (!added && !plIds.length) { toast('没有识别到有效歌曲，请检查格式'); return; }
-        // v3.8.x：含歌单链接 → 歌单与单曲都导入后统一提示
-        if (plIds.length) {
-          toast('正在导入 ' + plIds.length + ' 个歌单…');
-          importPlaylistIds(plIds, (res) => {
-            saveLibrary();
-            document.getElementById('tc-mask').hidden = true;
-            renderPage();
-            let msg = (added ? '已导入 ' + added + ' 首音乐 + ' : '已导入 ');
-            if (res.total) {
-              msg += res.plOk + ' 个歌单 / ' + res.total + ' 首';
-            } else {
-              msg += '0 首歌单（可能私密/已失效/被浏览器拦截';
-              // v3.26.x 收口第二批：UA 特判改读 device.js env.apiBlockedHint（唯一嗅探处）
-              if (((window.mochiDevice || {}).env || {}).apiBlockedHint) msg += '，当前浏览器可能拦截了音乐 API，可换用 Safari 重试';
-              else msg += '，可稍后重试';
-              msg += '）';
-            }
-            if (res.skipped) msg += '（跳过已有 ' + res.skipped + ' 首）';
-            if (res.vip) msg += '（VIP 歌曲 ' + res.vip + ' 首未导入）';
-            if (res.miss) msg += '（数据源受限，另有 ' + res.miss + ' 首未取到，稍后重导同一链接可补齐）';
-            if (res.plFail && res.total) msg += '；' + res.plFail + ' 个歌单失败（可能私密/已失效/被拦截）';
-            toast(msg);
-          }, targetPl);
-          return;
-        }
-        saveLibrary();
-        document.getElementById('tc-mask').hidden = true;
-        renderPage();
-        toast('已导入 ' + added + ' 首音乐');
-      };
+      const runBatch = smImportBatchText;
       if (cloudUrl) {
         toast('正在从云端获取曲库…');
         CI.fetch(cloudUrl, 'music').then((text) => { resolveTargetPlaylist((tp) => { runBatch(text, tp); }); })

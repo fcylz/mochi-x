@@ -3678,6 +3678,69 @@
       }).observe(mask, { attributes: true, attributeFilter: ['hidden'] });
     }
   }
+  // ===== 文字字卡导入主管线（模块级）=====
+  // 2026-10-22：从「批量导入字卡」弹窗的回调闭包里原样提升出来，给弹窗与工具栏
+  // 「云端字卡」按钮共用同一条写入路径（去重/分组/落库/刷新/toast 一字不改），
+  // 不另起一套——本族历史教训是「手抄必漏」。
+  function ccImportTextLines(text, targetGroup) {
+    // 一行一个字卡：统一按 \r\n / \r / \n 拆分——部分手机浏览器/剪贴板来源的换行是 \r，
+    // 只按 \n 拆会把多行并成一行，全部混进同一个字卡
+    const lines = String(text || '').split(/\r\n|\r|\n/).map(l => l.trim()).filter(Boolean);
+    if (!lines.length) { toast('没有可导入的内容'); return; }
+    if (!groups[cur]) groups[cur] = [];
+    let curGrp = null;
+    let imported = 0;
+    let dup = 0;
+    let newGroups = 0;
+    // 同一分组内自动去重：分组已有字卡 + 本次已导入的都算，重复内容跳过
+    const seenMap = new Map();
+    const pushCard = (g, card) => {
+      let seen = seenMap.get(g);
+      if (!seen) { seen = new Set(g[1]); seenMap.set(g, seen); }
+      if (seen.has(card)) { dup++; return false; }
+      seen.add(card);
+      g[1].push(card);
+      return true;
+    };
+    if (targetGroup) {
+      let g = groups[cur].find(g => g[0] === targetGroup);
+      if (!g) { g = [targetGroup, []]; groups[cur].push(g); }
+      curGrp = g;
+    }
+    lines.forEach(line => {
+      const m = line.match(/^[【\[](.*?)[】\]](.*)$/);
+      if (m && m[1].trim()) {
+        const gname = m[1].trim();
+        let g = groups[cur].find(g => g[0] === gname);
+        if (!g) { g = [gname, []]; groups[cur].push(g); newGroups++; }
+        curGrp = g;
+        const rest = (m[2] || '').trim();
+        if (rest && pushCard(g, rest)) imported++;
+        return;
+      }
+      if (curGrp) {
+        if (pushCard(curGrp, line)) imported++;
+      } else {
+        let g = groups[cur].find(g => g[0] === '未分组');
+        if (!g) { g = ['未分组', []]; groups[cur].push(g); newGroups++; }
+        if (pushCard(g, line)) imported++;
+      }
+    });
+    // v3.27.x：持久化延后——saveGroups 同步序列化整个字卡库（含表情包/图片 dataURL
+    //   可达几 MB~几十 MB）会阻塞主线程，与编辑单卡（openEditCard）同用 scheduleSave。
+    //   内存 groups 已更新，render() 立即用内存数据渲染，写 LS+IDB 延后到下一帧
+    scheduleSave();
+    renderGroupsBar();
+    render();
+    toast('已导入 ' + imported + ' 条字卡' + (dup ? '，自动去重 ' + dup + ' 条' : '') + (newGroups ? '，新建 ' + newGroups + ' 个分组' : ''));
+  }
+  // 云端字卡按钮入口：按钮只在文字分类显形（syncCloudVis），这里再兜一道分类守卫，
+  // 避免任何时序下把文字卡写进表情包/图片/语音分类
+  window.ccCloudImportText = function (text) {
+    if (IMG_TYPES[cur]) { toast('云端字卡只能导入到文字分类，请先切到一个字卡分类'); return; }
+    ccImportTextLines(text, '');
+  };
+
   const impBtn = document.getElementById('cc-import');
   if (impBtn) {
     // ---- 媒体分类批量导入主管线（表情包/图片上传图片，语音上传音频）----
@@ -3870,58 +3933,7 @@
         window.openModal('批量导入字卡（一行一个）', '', (raw, targetGroup) => {
           // 云端字卡库：粘贴 .json 链接（或留空直接确定＝用上次地址）→ 先展开成本框认的格式，
           // 之后仍走下面同一条导入管线（去重/分组/落库/刷新全复用）
-          const runImport = (text) => {
-          // 一行一个字卡：统一按 \r\n / \r / \n 拆分——部分手机浏览器/剪贴板来源的换行是 \r，
-          // 只按 \n 拆会把多行并成一行，全部混进同一个字卡
-          const lines = String(text || '').split(/\r\n|\r|\n/).map(l => l.trim()).filter(Boolean);
-          if (!lines.length) { toast('没有可导入的内容'); return; }
-          if (!groups[cur]) groups[cur] = [];
-          let curGrp = null;
-          let imported = 0;
-          let dup = 0;
-          let newGroups = 0;
-          // 同一分组内自动去重：分组已有字卡 + 本次已导入的都算，重复内容跳过
-          const seenMap = new Map();
-          const pushCard = (g, card) => {
-            let seen = seenMap.get(g);
-            if (!seen) { seen = new Set(g[1]); seenMap.set(g, seen); }
-            if (seen.has(card)) { dup++; return false; }
-            seen.add(card);
-            g[1].push(card);
-            return true;
-          };
-          if (targetGroup) {
-            let g = groups[cur].find(g => g[0] === targetGroup);
-            if (!g) { g = [targetGroup, []]; groups[cur].push(g); }
-            curGrp = g;
-          }
-          lines.forEach(line => {
-            const m = line.match(/^[【\[](.*?)[】\]](.*)$/);
-            if (m && m[1].trim()) {
-              const gname = m[1].trim();
-              let g = groups[cur].find(g => g[0] === gname);
-              if (!g) { g = [gname, []]; groups[cur].push(g); newGroups++; }
-              curGrp = g;
-              const rest = (m[2] || '').trim();
-              if (rest && pushCard(g, rest)) imported++;
-              return;
-            }
-            if (curGrp) {
-              if (pushCard(curGrp, line)) imported++;
-            } else {
-              let g = groups[cur].find(g => g[0] === '未分组');
-              if (!g) { g = ['未分组', []]; groups[cur].push(g); newGroups++; }
-              if (pushCard(g, line)) imported++;
-            }
-          });
-          // v3.27.x：持久化延后——saveGroups 同步序列化整个字卡库（含表情包/图片 dataURL
-          //   可达几 MB~几十 MB）会阻塞主线程，与编辑单卡（openEditCard）同用 scheduleSave。
-          //   内存 groups 已更新，render() 立即用内存数据渲染，写 LS+IDB 延后到下一帧
-          scheduleSave();
-          renderGroupsBar();
-          render();
-          toast('已导入 ' + imported + ' 条字卡' + (dup ? '，自动去重 ' + dup + ' 条' : '') + (newGroups ? '，新建 ' + newGroups + ' 个分组' : ''));
-          };
+          const runImport = (text) => ccImportTextLines(text, targetGroup);
           const CI = window.mochiCloudImport;
           const cloudUrl = CI ? CI.pickUrl(raw, 'word', true) : '';
           if (!cloudUrl) { runImport(raw); return; }
@@ -3938,7 +3950,7 @@
           big: true,
           textarea: true,
           textareaRows: 14,
-          textareaPlaceholder: '【日常】\n你今天真好看\n我想你了\n\n也可只粘贴云端字卡库链接（.json）\n留空直接点确定＝用上次用过的地址',
+          textareaPlaceholder: '【日常】\n你今天真好看\n我想你了\n\n也可只粘贴云端字卡库链接（.json）\n留空直接点确定＝用上次用过的地址\n（一键拉取请点工具栏「云端字卡」，不用输链接）',
           txtImport: true,
           // v3.6.x：传入当前分类的现有分组——openModal 的「目标分组」下拉只在
           // opts.groups 非空时显示；此前漏传，弹窗里永远没有分组选择框，
@@ -3954,9 +3966,19 @@
   // 点了只吃 toast 拦截（用户反馈）。切分类/进页时按当前分类显隐；弹窗前的分类守卫
   // 保留作兜底。
   function syncLinkImportVis() {
+    // 媒体分类（表情包/图片）＝链接类入口；其余分类＝文字类入口。
+    // 三个按钮共用同一把尺子，不另起一套同步逻辑（切 tab / 进页都会调到这里）。
+    const isMedia = (cur === 'sticker' || cur === 'image');
     const b = document.getElementById('cc-import-link');
     if (!b) return;
     b.style.display = (cur === 'sticker' || cur === 'image') ? '' : 'none';
+    // 两个云端按钮吃同一把尺子：媒体分类出「云端表情」，其余文字分类出「云端字卡」
+    const setVis = (id, show) => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = show ? '' : 'none';
+    };
+    setVis('cc-cloud-meme', isMedia);
+    setVis('cc-cloud-word', !isMedia && !IMG_TYPES[cur]);
   }
 
   // ================= 链接导入图片（v3.11.x，单链接/批量链接通用） =================
@@ -4028,6 +4050,68 @@
     return Promise.all([0, 1, 2, 3].map(() => next())).then(() => out);
   }
   let linkImportBusy = false; // 防重复提交：上一批还在抓取时不允许叠开第二批
+
+  // ===== 图片/表情链接导入主管线（模块级）=====
+  // 2026-10-22：从「链接导入」弹窗的回调闭包里原样提升出来，给弹窗与工具栏
+  // 「云端表情」按钮共用同一条写入路径（转存/压缩/入池/落库/toast 一字不改）。
+  function ccImportLinkLines(text, targetGroup) {
+    const items = splitUrlItems(text);
+    if (!items.length) { toast('没有可导入的图片链接（需以 http(s):// 开头）'); return; }
+    linkImportBusy = true;
+    if (!groups[cur]) groups[cur] = [];
+    // 落点分组优先级：行首【组名】> 弹窗「目标分组」下拉 > 当前选中分组 > 分类默认分组
+    // （与文字批量导入一致：前缀行永远进自己的组，下拉只接无前缀的行）
+    let newGroups = 0;
+    const buckets = {};
+    const resolveBucket = (name) => {
+      if (!buckets[name]) {
+        let g = groups[cur].find(x => x[0] === name);
+        if (!g) { g = [name, []]; groups[cur].push(g); newGroups++; }
+        buckets[name] = { g: g, seen: new Set(g[1]) }; // 分组内去重：已有字卡 + 本次已导入都算重复
+      }
+      return buckets[name];
+    };
+    const jobs = items.map(it => ({ url: it.url, bucket: resolveBucket(it.g || targetGroup || curGroup || MEDIA_TYPES[cur]) }));
+    let okData = 0, okUrl = 0, dup = 0, fail = 0, httpSaved = 0;
+    toast('开始导入 ' + jobs.length + ' 个链接…');
+    const isImgCat = cur === 'image';
+    runLinkPool(jobs, (job) => fetchLinkImage(job.url, (dataUrl) =>
+      compressImage(dataUrl, isImgCat ? 720 : 480, isImgCat ? 'image/jpeg' : 'image/png', isImgCat ? 0.85 : undefined)
+    )).then(results => {
+      results.forEach((res, i) => {
+        const b = jobs[i].bucket;
+        if (res.st === 'fail') { fail++; return; }
+        if (b.seen.has(res.v)) { dup++; return; }
+        b.seen.add(res.v);
+        b.g[1].push(res.v);
+        if (res.st === 'data') okData++;
+        else {
+          okUrl++;
+          if (/^http:\/\//i.test(jobs[i].url)) httpSaved++; // 升级 https 抓取也失败才落到这里
+        }
+      });
+      saveGroups(groups);
+      renderGroupsBar();
+      render();
+      linkImportBusy = false;
+      const got = okData + okUrl;
+      toast('已导入 ' + got + ' 个' + MEDIA_TYPES[cur] +
+        (okUrl ? '（其中 ' + okUrl + ' 个按链接保存，需联网显示' + (httpSaved ? '；含 ' + httpSaved + ' 个 http 链接，本站可能拦截不显示' : '') + '）' : '') +
+        (dup ? '，跳过重复 ' + dup + ' 个' : '') +
+        (fail ? '，失败 ' + fail + ' 个（非图片地址）' : '') +
+        (newGroups ? '，新建 ' + newGroups + ' 个分组' : ''));
+    }, () => {
+      linkImportBusy = false;
+      toast('导入出错，请重试');
+    });
+  }
+  // 云端表情按钮入口：按钮只在【表情包】【图片】显形（syncCloudVis），这里再兜一道守卫
+  window.ccCloudImportLinks = function (text) {
+    if (cur !== 'sticker' && cur !== 'image') { toast('云端表情只导入到「表情包」和「图片」分类'); return; }
+    if (linkImportBusy) { toast('上一批链接还在导入中，请稍等'); return; }
+    ccImportLinkLines(text, '');
+  };
+
   const impLinkBtn = document.getElementById('cc-import-link');
   if (impLinkBtn) {
     impLinkBtn.addEventListener('click', () => {
@@ -4036,57 +4120,7 @@
       if (!window.openModal) return;
       window.openModal('链接导入' + MEDIA_TYPES[cur] + '（一行一个链接）', '', (raw, targetGroup) => {
         // 云端表情库：同文字导入，先展开成一行一个直链再走原管线（转存/压缩/入池全复用）
-        const runLink = (text) => {
-        const items = splitUrlItems(text);
-        if (!items.length) { toast('没有可导入的图片链接（需以 http(s):// 开头）'); return; }
-        linkImportBusy = true;
-        if (!groups[cur]) groups[cur] = [];
-        // 落点分组优先级：行首【组名】> 弹窗「目标分组」下拉 > 当前选中分组 > 分类默认分组
-        // （与文字批量导入一致：前缀行永远进自己的组，下拉只接无前缀的行）
-        let newGroups = 0;
-        const buckets = {};
-        const resolveBucket = (name) => {
-          if (!buckets[name]) {
-            let g = groups[cur].find(x => x[0] === name);
-            if (!g) { g = [name, []]; groups[cur].push(g); newGroups++; }
-            buckets[name] = { g: g, seen: new Set(g[1]) }; // 分组内去重：已有字卡 + 本次已导入都算重复
-          }
-          return buckets[name];
-        };
-        const jobs = items.map(it => ({ url: it.url, bucket: resolveBucket(it.g || targetGroup || curGroup || MEDIA_TYPES[cur]) }));
-        let okData = 0, okUrl = 0, dup = 0, fail = 0, httpSaved = 0;
-        toast('开始导入 ' + jobs.length + ' 个链接…');
-        const isImgCat = cur === 'image';
-        runLinkPool(jobs, (job) => fetchLinkImage(job.url, (dataUrl) =>
-          compressImage(dataUrl, isImgCat ? 720 : 480, isImgCat ? 'image/jpeg' : 'image/png', isImgCat ? 0.85 : undefined)
-        )).then(results => {
-          results.forEach((res, i) => {
-            const b = jobs[i].bucket;
-            if (res.st === 'fail') { fail++; return; }
-            if (b.seen.has(res.v)) { dup++; return; }
-            b.seen.add(res.v);
-            b.g[1].push(res.v);
-            if (res.st === 'data') okData++;
-            else {
-              okUrl++;
-              if (/^http:\/\//i.test(jobs[i].url)) httpSaved++; // 升级 https 抓取也失败才落到这里
-            }
-          });
-          saveGroups(groups);
-          renderGroupsBar();
-          render();
-          linkImportBusy = false;
-          const got = okData + okUrl;
-          toast('已导入 ' + got + ' 个' + MEDIA_TYPES[cur] +
-            (okUrl ? '（其中 ' + okUrl + ' 个按链接保存，需联网显示' + (httpSaved ? '；含 ' + httpSaved + ' 个 http 链接，本站可能拦截不显示' : '') + '）' : '') +
-            (dup ? '，跳过重复 ' + dup + ' 个' : '') +
-            (fail ? '，失败 ' + fail + ' 个（非图片地址）' : '') +
-            (newGroups ? '，新建 ' + newGroups + ' 个分组' : ''));
-        }, () => {
-          linkImportBusy = false;
-          toast('导入出错，请重试');
-        });
-        };
+        const runLink = (text) => ccImportLinkLines(text, targetGroup);
         const CI2 = window.mochiCloudImport;
         const cloudUrl2 = CI2 ? CI2.pickUrl(raw, 'meme', true) : '';
         if (!cloudUrl2) { runLink(raw); return; }
@@ -4096,7 +4130,7 @@
           .catch((e) => { linkImportBusy = false; toast('云端表情获取失败：' + ((e && e.message) || '网络或跨域问题')); });
       }, {
         textarea: true,
-        textareaPlaceholder: 'https://example.com/sticker.png\n一行一个链接，可粘贴多个批量导入\n可用【分组名】前缀指定分组，如：【日常】https://…\n也可只粘贴云端表情库链接（.json），留空点确定用上次地址\n\n提示：优先尝试转存为本地图片；图床不允许跨域时按链接保存',
+        textareaPlaceholder: 'https://example.com/sticker.png\n一行一个链接，可粘贴多个批量导入\n可用【分组名】前缀指定分组，如：【日常】https://…\n也可只粘贴云端表情库链接（.json），留空点确定用上次地址\n\n一键拉取请点工具栏「云端表情」，不用输链接\n提示：优先尝试转存为本地图片；图床不允许跨域时按链接保存',
         groups: (groups[cur] || []).map(g => g[0])
       });
     });

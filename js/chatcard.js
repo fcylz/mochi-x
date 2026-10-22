@@ -2947,6 +2947,56 @@ b.remove();
 }).observe(mask, { attributes: true, attributeFilter: ['hidden'] });
 }
 }
+function ccImportTextLines(text, targetGroup) {
+const lines = String(text || '').split(/\r\n|\r|\n/).map(l => l.trim()).filter(Boolean);
+if (!lines.length) { toast('没有可导入的内容'); return; }
+if (!groups[cur]) groups[cur] = [];
+let curGrp = null;
+let imported = 0;
+let dup = 0;
+let newGroups = 0;
+const seenMap = new Map();
+const pushCard = (g, card) => {
+let seen = seenMap.get(g);
+if (!seen) { seen = new Set(g[1]); seenMap.set(g, seen); }
+if (seen.has(card)) { dup++; return false; }
+seen.add(card);
+g[1].push(card);
+return true;
+};
+if (targetGroup) {
+let g = groups[cur].find(g => g[0] === targetGroup);
+if (!g) { g = [targetGroup, []]; groups[cur].push(g); }
+curGrp = g;
+}
+lines.forEach(line => {
+const m = line.match(/^[【\[](.*?)[】\]](.*)$/);
+if (m && m[1].trim()) {
+const gname = m[1].trim();
+let g = groups[cur].find(g => g[0] === gname);
+if (!g) { g = [gname, []]; groups[cur].push(g); newGroups++; }
+curGrp = g;
+const rest = (m[2] || '').trim();
+if (rest && pushCard(g, rest)) imported++;
+return;
+}
+if (curGrp) {
+if (pushCard(curGrp, line)) imported++;
+} else {
+let g = groups[cur].find(g => g[0] === '未分组');
+if (!g) { g = ['未分组', []]; groups[cur].push(g); newGroups++; }
+if (pushCard(g, line)) imported++;
+}
+});
+scheduleSave();
+renderGroupsBar();
+render();
+toast('已导入 ' + imported + ' 条字卡' + (dup ? '，自动去重 ' + dup + ' 条' : '') + (newGroups ? '，新建 ' + newGroups + ' 个分组' : ''));
+}
+window.ccCloudImportText = function (text) {
+if (IMG_TYPES[cur]) { toast('云端字卡只能导入到文字分类，请先切到一个字卡分类'); return; }
+ccImportTextLines(text, '');
+};
 const impBtn = document.getElementById('cc-import');
 if (impBtn) {
 function ccImportMedia(files) {
@@ -3076,52 +3126,7 @@ return;
 if (window.openModal) {
 showImportTopOk();
 window.openModal('批量导入字卡（一行一个）', '', (raw, targetGroup) => {
-const runImport = (text) => {
-const lines = String(text || '').split(/\r\n|\r|\n/).map(l => l.trim()).filter(Boolean);
-if (!lines.length) { toast('没有可导入的内容'); return; }
-if (!groups[cur]) groups[cur] = [];
-let curGrp = null;
-let imported = 0;
-let dup = 0;
-let newGroups = 0;
-const seenMap = new Map();
-const pushCard = (g, card) => {
-let seen = seenMap.get(g);
-if (!seen) { seen = new Set(g[1]); seenMap.set(g, seen); }
-if (seen.has(card)) { dup++; return false; }
-seen.add(card);
-g[1].push(card);
-return true;
-};
-if (targetGroup) {
-let g = groups[cur].find(g => g[0] === targetGroup);
-if (!g) { g = [targetGroup, []]; groups[cur].push(g); }
-curGrp = g;
-}
-lines.forEach(line => {
-const m = line.match(/^[【\[](.*?)[】\]](.*)$/);
-if (m && m[1].trim()) {
-const gname = m[1].trim();
-let g = groups[cur].find(g => g[0] === gname);
-if (!g) { g = [gname, []]; groups[cur].push(g); newGroups++; }
-curGrp = g;
-const rest = (m[2] || '').trim();
-if (rest && pushCard(g, rest)) imported++;
-return;
-}
-if (curGrp) {
-if (pushCard(curGrp, line)) imported++;
-} else {
-let g = groups[cur].find(g => g[0] === '未分组');
-if (!g) { g = ['未分组', []]; groups[cur].push(g); newGroups++; }
-if (pushCard(g, line)) imported++;
-}
-});
-scheduleSave();
-renderGroupsBar();
-render();
-toast('已导入 ' + imported + ' 条字卡' + (dup ? '，自动去重 ' + dup + ' 条' : '') + (newGroups ? '，新建 ' + newGroups + ' 个分组' : ''));
-};
+const runImport = (text) => ccImportTextLines(text, targetGroup);
 const CI = window.mochiCloudImport;
 const cloudUrl = CI ? CI.pickUrl(raw, 'word', true) : '';
 if (!cloudUrl) { runImport(raw); return; }
@@ -3132,7 +3137,7 @@ CI.fetch(cloudUrl, 'word').then((text) => { runImport(text); })
 big: true,
 textarea: true,
 textareaRows: 14,
-textareaPlaceholder: '【日常】\n你今天真好看\n我想你了\n\n也可只粘贴云端字卡库链接（.json）\n留空直接点确定＝用上次用过的地址',
+textareaPlaceholder: '【日常】\n你今天真好看\n我想你了\n\n也可只粘贴云端字卡库链接（.json）\n留空直接点确定＝用上次用过的地址\n（一键拉取请点工具栏「云端字卡」，不用输链接）',
 txtImport: true,
 groups: (groups[cur] || []).map(g => g[0])
 });
@@ -3140,9 +3145,16 @@ groups: (groups[cur] || []).map(g => g[0])
 });
 }
 function syncLinkImportVis() {
+const isMedia = (cur === 'sticker' || cur === 'image');
 const b = document.getElementById('cc-import-link');
 if (!b) return;
 b.style.display = (cur === 'sticker' || cur === 'image') ? '' : 'none';
+const setVis = (id, show) => {
+const el = document.getElementById(id);
+if (el) el.style.display = show ? '' : 'none';
+};
+setVis('cc-cloud-meme', isMedia);
+setVis('cc-cloud-word', !isMedia && !IMG_TYPES[cur]);
 }
 function splitUrlItems(raw) {
 return String(raw || '').split(/\r\n|\r|\n/)
@@ -3197,14 +3209,7 @@ return worker(urls[idx]).then((res) => { out[idx] = res; return next(); });
 return Promise.all([0, 1, 2, 3].map(() => next())).then(() => out);
 }
 let linkImportBusy = false; // 防重复提交：上一批还在抓取时不允许叠开第二批
-const impLinkBtn = document.getElementById('cc-import-link');
-if (impLinkBtn) {
-impLinkBtn.addEventListener('click', () => {
-if (cur !== 'sticker' && cur !== 'image') { toast('链接导入仅支持「表情包」和「图片」分类'); return; }
-if (linkImportBusy) { toast('上一批链接还在导入中，请稍等'); return; }
-if (!window.openModal) return;
-window.openModal('链接导入' + MEDIA_TYPES[cur] + '（一行一个链接）', '', (raw, targetGroup) => {
-const runLink = (text) => {
+function ccImportLinkLines(text, targetGroup) {
 const items = splitUrlItems(text);
 if (!items.length) { toast('没有可导入的图片链接（需以 http(s):// 开头）'); return; }
 linkImportBusy = true;
@@ -3252,7 +3257,20 @@ toast('已导入 ' + got + ' 个' + MEDIA_TYPES[cur] +
 linkImportBusy = false;
 toast('导入出错，请重试');
 });
+}
+window.ccCloudImportLinks = function (text) {
+if (cur !== 'sticker' && cur !== 'image') { toast('云端表情只导入到「表情包」和「图片」分类'); return; }
+if (linkImportBusy) { toast('上一批链接还在导入中，请稍等'); return; }
+ccImportLinkLines(text, '');
 };
+const impLinkBtn = document.getElementById('cc-import-link');
+if (impLinkBtn) {
+impLinkBtn.addEventListener('click', () => {
+if (cur !== 'sticker' && cur !== 'image') { toast('链接导入仅支持「表情包」和「图片」分类'); return; }
+if (linkImportBusy) { toast('上一批链接还在导入中，请稍等'); return; }
+if (!window.openModal) return;
+window.openModal('链接导入' + MEDIA_TYPES[cur] + '（一行一个链接）', '', (raw, targetGroup) => {
+const runLink = (text) => ccImportLinkLines(text, targetGroup);
 const CI2 = window.mochiCloudImport;
 const cloudUrl2 = CI2 ? CI2.pickUrl(raw, 'meme', true) : '';
 if (!cloudUrl2) { runLink(raw); return; }
@@ -3262,7 +3280,7 @@ CI2.fetch(cloudUrl2, 'meme').then((text) => { runLink(text); })
 .catch((e) => { linkImportBusy = false; toast('云端表情获取失败：' + ((e && e.message) || '网络或跨域问题')); });
 }, {
 textarea: true,
-textareaPlaceholder: 'https://example.com/sticker.png\n一行一个链接，可粘贴多个批量导入\n可用【分组名】前缀指定分组，如：【日常】https://…\n也可只粘贴云端表情库链接（.json），留空点确定用上次地址\n\n提示：优先尝试转存为本地图片；图床不允许跨域时按链接保存',
+textareaPlaceholder: 'https://example.com/sticker.png\n一行一个链接，可粘贴多个批量导入\n可用【分组名】前缀指定分组，如：【日常】https://…\n也可只粘贴云端表情库链接（.json），留空点确定用上次地址\n\n一键拉取请点工具栏「云端表情」，不用输链接\n提示：优先尝试转存为本地图片；图床不允许跨域时按链接保存',
 groups: (groups[cur] || []).map(g => g[0])
 });
 });

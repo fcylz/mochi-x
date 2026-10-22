@@ -1255,20 +1255,7 @@ addLinkLines(lines, isBatch);
 });
 });
 }
-function openBatch() {
-if (!window.openTCPanel) return;
-window.openTCPanel('批量导入音乐', '' +
-'<div class="sm-fld-hint" style="margin-bottom:8px">' + PLAYLIST_LINK_REMIND + '<b>支持 3 种导入方式：</b><br>① <b>网易云歌单</b>：直接粘贴歌单分享链接（music.163.com/playlist?id=xxx 或 #/playlist?id=xxx），自动导入整个歌单；<br>② <b>网易云单曲</b>：每行一个歌曲数字 ID（如 2064961530），或<b>直接粘贴完整网易云链接</b>（如 music.163.com/#/song?id=xxx、song/media/outer/url?id=xxx.mp3），自动识别导入，不用手动填 ID；<br>③ <b>本地/直链</b>：按「歌曲名称 / 歌手 / 音乐直链URL」格式粘贴，每首歌空一行分隔（URL 栏同样支持直接贴网易云链接；直链要点开就是音频本身、以 .mp3 等结尾、需 https）。<br>' + OTHER_APP_LINK_HINT + '<br><span style="opacity:.75">⚠ 链接上传的 VIP/付费歌曲无法播放（仅免费歌曲可播）；歌单导入会自动移除 VIP/付费歌曲；歌单导入受网络环境影响（部分手机浏览器可能拦截），失败可稍后重试</span></div>' +
-'<textarea id="sm-batch-input" class="tc-input" rows="8" placeholder="网易云歌单链接：https://music.163.com/playlist?id=3778678&#10;网易云单曲链接：https://music.163.com/#/song?id=27538343&#10;或纯数字 ID：27538343&#10;&#10;歌曲名称：Baby&#10;歌手：EXO-K&#10;音乐直链URL：http://music.163.com/song/media/outer/url?id=27538343.mp3"></textarea>' +
-'<div class="sm-fld"><label>导入到歌单</label><select class="tc-input" id="sm-target-pl">' + targetPlOptions() + '</select></div>' +
-'<div class="mail-actions"><button class="cc-tool" id="sm-batch-cancel">取消</button><button class="cc-tool" id="sm-batch-ok">开始导入</button></div>');
-document.getElementById('sm-batch-cancel').addEventListener('click', () => { document.getElementById('tc-mask').hidden = true; });
-document.getElementById('sm-batch-ok').addEventListener('click', () => {
-const raw = readCeInput('sm-batch-input');
-const CI = window.mochiCloudImport;
-const cloudUrl = CI ? CI.pickUrl(raw, 'music', true) : '';
-if (!raw && !cloudUrl) { toast('请输入内容'); return; }
-const runBatch = (text, targetPl) => {
+function smImportBatchText(text, targetPl) {
 const rawLines = text.split(/\r?\n+/).map(s => s.trim()).filter(Boolean);
 const plIds = [];
 rawLines.forEach(l => { const pid = extractPlaylistId(l); if (pid && plIds.indexOf(pid) < 0) plIds.push(pid); });
@@ -1361,7 +1348,7 @@ if (plIds.length) {
 toast('正在导入 ' + plIds.length + ' 个歌单…');
 importPlaylistIds(plIds, (res) => {
 saveLibrary();
-document.getElementById('tc-mask').hidden = true;
+closeTCPanel();
 renderPage();
 let msg = (added ? '已导入 ' + added + ' 首音乐 + ' : '已导入 ');
 if (res.total) {
@@ -1381,10 +1368,33 @@ toast(msg);
 return;
 }
 saveLibrary();
-document.getElementById('tc-mask').hidden = true;
+closeTCPanel();
 renderPage();
 toast('已导入 ' + added + ' 首音乐');
+}
+function closeTCPanel() {
+try {
+const m = document.getElementById('tc-mask');
+if (m) m.hidden = true;
+} catch (e) {}
+}
+window.smCloudImportBatch = function (text) {
+resolveTargetPlaylist((tp) => { smImportBatchText(text, tp); });
 };
+function openBatch() {
+if (!window.openTCPanel) return;
+window.openTCPanel('批量导入音乐', '' +
+'<div class="sm-fld-hint" style="margin-bottom:8px">' + PLAYLIST_LINK_REMIND + '<b>支持 3 种导入方式：</b><br>① <b>网易云歌单</b>：直接粘贴歌单分享链接（music.163.com/playlist?id=xxx 或 #/playlist?id=xxx），自动导入整个歌单；<br>② <b>网易云单曲</b>：每行一个歌曲数字 ID（如 2064961530），或<b>直接粘贴完整网易云链接</b>（如 music.163.com/#/song?id=xxx、song/media/outer/url?id=xxx.mp3），自动识别导入，不用手动填 ID；<br>③ <b>本地/直链</b>：按「歌曲名称 / 歌手 / 音乐直链URL」格式粘贴，每首歌空一行分隔（URL 栏同样支持直接贴网易云链接；直链要点开就是音频本身、以 .mp3 等结尾、需 https）。<br>' + OTHER_APP_LINK_HINT + '<br><span style="opacity:.75">⚠ 链接上传的 VIP/付费歌曲无法播放（仅免费歌曲可播）；歌单导入会自动移除 VIP/付费歌曲；歌单导入受网络环境影响（部分手机浏览器可能拦截），失败可稍后重试</span></div>' +
+'<textarea id="sm-batch-input" class="tc-input" rows="8" placeholder="网易云歌单链接：https://music.163.com/playlist?id=3778678&#10;网易云单曲链接：https://music.163.com/#/song?id=27538343&#10;或纯数字 ID：27538343&#10;&#10;歌曲名称：Baby&#10;歌手：EXO-K&#10;音乐直链URL：http://music.163.com/song/media/outer/url?id=27538343.mp3"></textarea>' +
+'<div class="sm-fld"><label>导入到歌单</label><select class="tc-input" id="sm-target-pl">' + targetPlOptions() + '</select></div>' +
+'<div class="mail-actions"><button class="cc-tool" id="sm-batch-cancel">取消</button><button class="cc-tool" id="sm-batch-ok">开始导入</button></div>');
+document.getElementById('sm-batch-cancel').addEventListener('click', () => { document.getElementById('tc-mask').hidden = true; });
+document.getElementById('sm-batch-ok').addEventListener('click', () => {
+const raw = readCeInput('sm-batch-input');
+const CI = window.mochiCloudImport;
+const cloudUrl = CI ? CI.pickUrl(raw, 'music', true) : '';
+if (!raw && !cloudUrl) { toast('请输入内容'); return; }
+const runBatch = smImportBatchText;
 if (cloudUrl) {
 toast('正在从云端获取曲库…');
 CI.fetch(cloudUrl, 'music').then((text) => { resolveTargetPlaylist((tp) => { runBatch(text, tp); }); })

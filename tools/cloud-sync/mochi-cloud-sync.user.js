@@ -36,9 +36,11 @@
     debug: true,                    // 打开控制台日志（排查完可设 false）
 
     // —— 云端端点 ——
-    wordUrl: 'https://cdn.jsdelivr.net/gh/fcylz/cy-chat@main/Word/word.json',
-    memeUrl: 'https://cdn.jsdelivr.net/gh/fcylz/cy-chat@main/Meme/meme.json',
-    memeBase: 'https://cdn.jsdelivr.net/gh/fcylz/cy-chat@main/',
+    // 2026-10-22：cdn.jsdelivr.net 实测连不上（curl 000），换 fastly 镜像
+    // （同目录同文件，200 正常返回；gcore.jsdelivr.net 也可用）。站点内置同理。
+    wordUrl: 'https://fastly.jsdelivr.net/gh/fcylz/cy-chat@main/Word/word.json',
+    memeUrl: 'https://fastly.jsdelivr.net/gh/fcylz/cy-chat@main/Meme/meme.json',
+    memeBase: 'https://fastly.jsdelivr.net/gh/fcylz/cy-chat@main/',
     musicUrl: 'https://fcylz.github.io/cy-music/index.json',
 
     // —— 同步目标 ——

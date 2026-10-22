@@ -2,20 +2,34 @@
 
 ## 一、这次加的是什么
 
-在**现有三个导入入口**里加了「粘贴云端库链接」的能力，UI 一个字节没动、也没加按钮：
+**一键拉取云端库：不用输链接，按钮就在对应库自己的工具栏里。**
 
-| 位置 | 怎么用 | 云端数据 |
+| 位置（按钮就在那儿） | 怎么用 | 云端数据 |
 |---|---|---|
-| 字卡库 → 公用/专属字卡 → 右上角「批量导入」 | 粘贴 `https://cdn.jsdelivr.net/gh/fcylz/cy-chat@main/Word/word.json`，点确定 | 1521 条，落在「云端·自定义回复」分组 |
-| 字卡库 → 表情包/图片分类 →「链接导入」 | 粘贴 `https://cdn.jsdelivr.net/gh/fcylz/cy-chat@main/Meme/meme.json`，点确定 | 78 张，落在「云端·反应表情」分组 |
-| 音乐 →「批量导入」 | 粘贴 `https://fcylz.github.io/cy-music/index.json`，点「开始导入」 | 72 首，按歌单落位 |
+| 字卡库（可定义字卡）工具栏 →「云端字卡」（只在文字类分类显示） | 点一下 | 1521 条，落在「云端·自定义回复」等分组 |
+| 字卡库 →【表情包】/【图片】分类 →「云端表情」 | 点一下 | 78 张，落在「云端·反应表情」分组 |
+| 音乐页 →「云端曲库」（在「批量导入」旁边） | 点一下 | 72 首，按歌单落位 |
 
 要点：
 
-- **留空直接点确定＝用上一次成功用过的地址**（按字卡/表情/曲库分别记忆），以后不用每次都粘链接
-- 展开后的去重、分组、图片压缩转存/入媒体池、音乐落库与刷新，全部走站点**原有**的导入管线
+- **不用输入任何链接**：三库地址内置在 `src/js/cloud-import.js` 的 `DEFAULTS` 里，每库一串镜像，按顺序回退、单个 8 秒超时，命中即记住该镜像，下次直接从它开始
+- **只手动点按钮**，不会自动拉取、不会偷偷写库
+- 展开后的去重、分组、图片压缩转存/入媒体池、音乐落库与刷新，全部走站点**原有**的导入管线（三个导入管线已提升为模块级函数，弹窗与按钮共用同一条，不另起一套）
+- 原来的「批量导入 / 链接导入」弹窗仍然可以粘贴 `.json` 链接自定义地址，粘过一次就记住；**留空直接点确定**＝用上次成功用过的地址（语义未变）
 - 改了源码，所以每次都要 `node build.mjs` 重新生成 `index.html` 与 `js/`（已构建好，见下）
-- 只新增了 `src/js/cloud-import.js` 一个模块，并在 `build.mjs` 的 `jsFiles` 清单里登记；三处回调各自只加了几行
+- 模块只有 `src/js/cloud-import.js` 一个，入口按钮在 `src/template.html`，管线入口在 `src/js/chatcard.js` / `src/js/music-player.js`
+
+### 内置镜像顺序（改这里换源）
+
+```
+字卡 / 表情：fastly.jsdelivr.net → gcore.jsdelivr.net → cdn.jsdelivr.net
+曲库：       fcylz.github.io/cy-music/index.json → fastly.jsdelivr.net → gcore.jsdelivr.net
+```
+
+> 2026-10-22 实测：`cdn.jsdelivr.net` 在本机网络直接连不上（curl 返回 000），
+> `fastly.jsdelivr.net` / `gcore.jsdelivr.net` 正常返回 200。这就是「APP 拉不到字卡和表情、
+> 曲库却能拉」的根因——**与 APP 无关**（APP 是 WebView 远程加载站点，与浏览器同源同策略），
+> 浏览器里同样会失败。换成可用镜像后三端一致。
 
 ## 二、推到 GitHub 并开启 Pages
 
@@ -57,17 +71,24 @@ https://<你的用户名>.github.io/<仓库名>/
      https://purge.jsdelivr.net/gh/fcylz/cy-chat@main/Word/word.json
      https://purge.jsdelivr.net/gh/fcylz/cy-chat@main/Meme/meme.json
      ```
-3. 打开你的站点 → 对应导入入口 → **留空直接点确定** → 新内容增量并入（已有的自动去重，不会重复入库）
+3. 打开你的站点 → 对应库的工具栏 → **点「云端字卡 / 云端表情 / 云端曲库」** → 新内容增量并入（已有的自动去重，不会重复入库）
 
 ## 四、出问题怎么查
 
-- 「云端字卡获取失败 / 网络或跨域问题」：链接不是 `.json`、CDN 还没刷新、或网络不通。先在浏览器地址栏直接打开那个链接确认能返回 JSON
+- 按钮点了没反应/一直「拉取中…」：单个镜像 8 秒超时，最多试 3 个，最长 ~24 秒一定出结果，不会无限挂住
+- 「云端字卡获取失败：已试 N 个地址都失败：…」：看括号里的明细逐个排查
+  - `超时（>8s）`＝该镜像连不上或太慢（会自动换下一个）
+  - `HTTP 404/403`＝仓库路径变了或仓库不存在
+  - `云端数据里没有可导入的内容`＝json 结构不对（应为 `categories.{key}.items[]` 或曲库的数组）
+  - 末尾会附上最后尝试的域名，方便直接判断是哪个源挂了
+- 想手动确认某个地址通不通：`curl.exe -s -o NUL -w "%{http_code} %{size_download}\n" <地址>`
 - 「没有可导入的内容」：json 结构不对（应为 `categories.{key}.items[]` 或曲库的数组）
 - 表情导入慢/部分失败：走的是原有链接导入管线，图床跨域失败会按链接保存；单张超过 1MB 会自动跳过
 - 音乐导入后没出现：音乐页刷新一次即可（导入后已落库）
-- 想确认改动有没有进产物：`js/cloud-import.js` 存在、且 `js/chatcard.js`、`js/music-player.js` 里能搜到 `mochiCloudImport`
+- 按钮不见了：【云端字卡】只在文字类分类显示、【云端表情】只在【表情包】【图片】显示，切一下分类即可
+- 想确认改动有没有进产物：`js/cloud-import.js` 里能搜到 `fastly.jsdelivr.net` 与 `fetchAny`，且 `index.html` 里能搜到 `cc-cloud-word` / `cc-cloud-meme` / `music-cloud`
 
-本地自检（不依赖浏览器）：
+本地自检（不依赖浏览器，会真发请求验证三个库都能拉到、并验证全镜像失败时的报错）：
 
 ```bash
 node tools/cloud-sync/smoke-cloud-import.mjs

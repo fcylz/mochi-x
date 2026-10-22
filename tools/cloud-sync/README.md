@@ -33,5 +33,9 @@ Node 层必跑（链接识别、三份云端数据取回与展开、上次地址
 - 字卡 / 表情：`github.com/fcylz/cy-chat` → 走 jsDelivr（带 `Access-Control-Allow-Origin: *`）
 - 曲库：`github.com/fcylz/cy-music` → 走 GitHub Pages（同样带 `ACAO:*`）
 - `raw.githubusercontent.com` 取不到字卡那两个 json，别换成它
+- ⚠️ **jsDelivr 要用可用镜像**：2026-10-22 实测 `cdn.jsdelivr.net` 在本机网络直接连不上
+  （curl 返回 000），`fastly.jsdelivr.net` / `gcore.jsdelivr.net` 正常返回 200。
+  站点内置顺序为 `fastly → gcore → cdn`，本脚本的 `CFG.wordUrl / memeUrl / memeBase`
+  已同步改成 `fastly.jsdelivr.net`。
 
 均为**公开**仓库，别放私人内容。
