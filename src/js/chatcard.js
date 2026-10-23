@@ -3680,10 +3680,31 @@
   }
   // ===== 文字字卡导入主管线（模块级）=====
   // 云端分类 → 字卡分类 tab。
-  // cy-chat 的七分类里只有「颜文字」「emoji」在 mochi 有独立 tab；另外五个（日常 /
+  // cy-chat 的 7 个通用分类里只有「颜文字」「emoji」在 mochi 有独立 tab；另外五个（日常 /
   // 连接 / 称呼 / 官方语录 / 情话）都是文本类，统一进主字卡。
+  // 2026-10 追加 13 个功能分类（cy-chat v2.1.0）：它们是 mochi「其它互动功能字卡」池的
+  // 云端来源，label 与 card-audit.js 的 CC_LABEL 逐字一致，命中就写进对应 CC_FUNC_KEYS
+  // 分类——本族分类有守卫（不进聊天通用回复池），落错地方等于把功能话术灌进日常聊天。
   // 刻意不映射表情包/图片/语音：云端字卡是纯文本，写进媒体分类会变成破图与坏语音。
-  const CLOUD_TYPE_BY_LABEL = { '颜文字': 'kaomoji', 'emoji': 'emoji' };
+  // 同理不映射 mjfree（梦角自由造句）：那是 dream-free.js 程序生成的重造句卡，
+  // 客户端自己维护，云端灌进去只会得到上下文无关的句子。
+  const CLOUD_TYPE_BY_LABEL = {
+    '颜文字': 'kaomoji',
+    'emoji': 'emoji',
+    '摸鱼': 'fish',
+    '吃饭': 'eat',
+    '经期': 'period',
+    '喝水': 'water',
+    '花园': 'garden',
+    '同频': 'sync',
+    '伸手': 'reach',
+    '此间': 'cjian',
+    '房间': 'room',
+    '存钱罐': 'piggy',
+    '漂流瓶': 'drift',
+    '互动回应': 'interact',
+    '音乐': 'music'
+  };
   const CLOUD_GROUP_PREFIX = '云端·';
   // 2026-10-22：从「批量导入字卡」弹窗的回调闭包里原样提升出来，给弹窗与工具栏
   // 「云端字卡」按钮共用同一条写入路径（去重/分组/落库/刷新/toast 一字不改），

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Mochi 云端字卡 / 表情包 / 曲库 自动同步
 // @namespace    mochi-cloud-sync
-// @version      1.2.0
+// @version      1.3.0
 // @description  打开页面即自动把你的云端字卡库、表情包库、曲库合并进本机 mochi 字卡。不改动站点任何代码，仅在浏览器里以用户脚本运行。
 // @match        *://*/*
 // @run-at       document-start
@@ -50,6 +50,8 @@
     // 云端分类 → mochi 字卡分类 + 分组名。未列出的分类按 defaultWordType 落到「云端·<label>」
     // 七分类于 2026-10 上线：只有颜文字 / emoji 在 mochi 有独立分类 tab，
     // 另外五个（日常/连接/称呼/官方语录/情话）是文本类，统一进主字卡。
+    // 2026-10 追加的 13 个功能分类（cy-chat v2.1.0）落到同名功能池：key 即分类，
+    // 与站点 chatcard.js 的 CC_FUNC_KEYS / card-audit.js 的 CC_LABEL 保持一致。
     // 刻意不映射表情包/图片/语音：云端字卡是纯文本，写进媒体分类只会得到破图与坏语音。
     wordMap: {
       customReplies: { type: 'text', group: '云端·自定义回复' },
@@ -61,7 +63,21 @@
       quotes: { type: 'text', group: '云端·官方语录' },
       sweet: { type: 'text', group: '云端·情话' },
       kaomoji: { type: 'kaomoji', group: '云端·颜文字' },
-      emoji: { type: 'emoji', group: '云端·emoji' }
+      emoji: { type: 'emoji', group: '云端·emoji' },
+      // —— 功能分类（各功能页专属池，不进聊天通用回复）——
+      fish: { type: 'fish', group: '云端·摸鱼' },
+      eat: { type: 'eat', group: '云端·吃饭' },
+      period: { type: 'period', group: '云端·经期' },
+      water: { type: 'water', group: '云端·喝水' },
+      garden: { type: 'garden', group: '云端·花园' },
+      sync: { type: 'sync', group: '云端·同频' },
+      reach: { type: 'reach', group: '云端·伸手' },
+      cjian: { type: 'cjian', group: '云端·此间' },
+      room: { type: 'room', group: '云端·房间' },
+      piggy: { type: 'piggy', group: '云端·存钱罐' },
+      drift: { type: 'drift', group: '云端·漂流瓶' },
+      interact: { type: 'interact', group: '云端·互动回应' },
+      music: { type: 'music', group: '云端·音乐' }
     },
     // 旧结构时期的三分类。单列一份是因为 wordMap 现在配满了七分类，
     // 若仍用「wordMap 里没有的 key」判断云端是否已换新结构，会永远判成旧结构，
@@ -88,6 +104,14 @@
 
   var MIRROR_KEY = 'mochi-cloud-sync:v1';
   var CC_TYPES = ['text', 'kaomoji', 'emoji', 'sticker', 'image', 'poke', 'voice'];
+  // 「其它互动功能字卡」分类（同站点 chatcard.js 的 CC_FUNC_KEYS）。
+  // 这些 key 不是载体类型，而是各功能页自己的抽卡池；写进去的卡只在该功能里被抽到。
+  // 云端的 13 个功能分类（cy-chat v2.1.0）要落到这里，不能落到 text——否则
+  // 「该吃饭了」这类话术会被聊天通用回复抽出来。
+  var CC_FUNC_TYPES = ['fish', 'eat', 'period', 'water', 'garden', 'sync', 'reach', 'cjian', 'room', 'piggy', 'drift', 'interact', 'music'];
+  // 可写分类 = 7 个载体 + 13 个功能池。CC_TYPES 仍只用于「库骨架」归一化（parsePack），
+  // 不把 13 个功能 key 塞进每个用户的空库，避免无谓膨胀。
+  var CC_WRITE_TYPES = CC_TYPES.concat(CC_FUNC_TYPES);
 
   function log() {
     if (!CFG.debug) return;
@@ -306,7 +330,7 @@
           if (!items.length) return;
           var m = CFG.wordMap[ck];
           var type = (m && m.type) || CFG.defaultWordType;
-          if (CC_TYPES.indexOf(type) < 0) type = CFG.defaultWordType;
+          if (CC_WRITE_TYPES.indexOf(type) < 0) type = CFG.defaultWordType;
           var group = (m && m.group) || (CFG.stickerGroupPrefix + (c.label || ck));
           // 组名去掉「云端·」就是裸名：拿它去和用户自己建的分组比对，同名则并入
           var bare = group.indexOf(CFG.stickerGroupPrefix) === 0 ? group.slice(CFG.stickerGroupPrefix.length) : group;

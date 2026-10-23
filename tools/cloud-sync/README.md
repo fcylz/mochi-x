@@ -28,17 +28,27 @@ Node 层必跑（链接识别、三份云端数据取回与展开、上次地址
 脚本内部用的是同一套站点接口（`ccReloadGroupsAfterExternalWrite`、`mochiMediaTokenize` 等），
 互不冲突——两边都做了内容去重，重复导入不会产生重复字卡。
 
-### 分类落位与分组合并（脚本 1.2.0 起，站点同步）
+### 分类落位与分组合并（脚本 1.2.0 起，站点同步；1.3.0 补功能分类）
 
-云端七分类 → mochi 字卡分类：
+云端分类 → mochi 字卡分类：
 
 | 云端分类 | 落到 mochi 的 | 说明 |
 |---|---|---|
 | `kaomoji` 颜文字 | **颜文字** tab | 有独立分类 |
 | `emoji` emoji | **emoji** tab | 有独立分类 |
 | `daily` 日常 / `connect` 连接 / `address` 称呼 / `quotes` 官方语录 / `sweet` 情话 | **主字卡** tab | 都是文本类，各成一组建在同一个 tab 下 |
+| `fish` 摸鱼 / `eat` 吃饭 / `period` 经期 / `water` 喝水 / `garden` 花园 / `sync` 同频 / `reach` 伸手 / `cjian` 此间 / `room` 房间 / `piggy` 存钱罐 / `drift` 漂流瓶 / `interact` 互动回应 / `music` 音乐 | **同名功能池** | 1.3.0 新增：写进各功能页自己的抽卡池，**不进聊天通用回复** |
+
+功能分类的 13 个 key 与站点 `chatcard.js` 的 `CC_FUNC_KEYS`、`card-audit.js` 的 `CC_LABEL`
+一一对应；脚本里它们不算「载体类型」，所以另开了 `CC_WRITE_TYPES = CC_TYPES + CC_FUNC_TYPES`
+做写前校验——只校验 `CC_TYPES` 的话，这些分类会被打回 `defaultWordType`（text），
+「该吃饭了」就会被聊天自动回复抽出来。
 
 刻意不映射表情包/图片/语音：云端字卡是纯文本，塞进媒体分类只会得到破图与坏语音。
+也刻意不映射 `mjfree`（梦角自由造句）——那是 `dream-free.js` 程序生成的重造句卡，
+客户端自己维护，云端灌进去只会得到上下文无关的句子。
+
+云端那些**还没填内容的空分类**（`items: []`）会被直接跳过，不会建出空分组。
 
 **组与组怎么匹配**——目标分类下按顺序找同名分组，命中即并入，不再并排建第二个：
 
@@ -73,7 +83,8 @@ cy-chat 的字卡在 2026-10 从「一个 `customReplies` 装 1521 条」拆成�
 
 > 1.2.0 把七分类都配进了 `wordMap`（为了给它们指定分类和组名），所以「是否已换新结构」的
 > 判据改成了 `legacyWordKeys` 白名单——继续用「`wordMap` 里没配的 key」判断会永远判成旧结构，
-> 旧组就再也清不掉了。
+> 旧组就再也清不掉了。1.3.0 又把 13 个功能分类配进去，同理不影响这条判据（`legacyWordKeys`
+> 始终只认 `customReplies` / `pokes` / `statuses` 三条）。
 
 ## 云端仓库
 

@@ -2947,7 +2947,23 @@ b.remove();
 }).observe(mask, { attributes: true, attributeFilter: ['hidden'] });
 }
 }
-const CLOUD_TYPE_BY_LABEL = { '颜文字': 'kaomoji', 'emoji': 'emoji' };
+const CLOUD_TYPE_BY_LABEL = {
+'颜文字': 'kaomoji',
+'emoji': 'emoji',
+'摸鱼': 'fish',
+'吃饭': 'eat',
+'经期': 'period',
+'喝水': 'water',
+'花园': 'garden',
+'同频': 'sync',
+'伸手': 'reach',
+'此间': 'cjian',
+'房间': 'room',
+'存钱罐': 'piggy',
+'漂流瓶': 'drift',
+'互动回应': 'interact',
+'音乐': 'music'
+};
 const CLOUD_GROUP_PREFIX = '云端·';
 function ccImportTextLines(text, targetGroup) {
 const lines = String(text || '').split(/\r\n|\r|\n/).map(l => l.trim()).filter(Boolean);
