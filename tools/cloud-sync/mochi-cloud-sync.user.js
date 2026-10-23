@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Mochi 云端字卡 / 表情包 / 曲库 自动同步
 // @namespace    mochi-cloud-sync
-// @version      1.0.0
+// @version      1.1.0
 // @description  打开页面即自动把你的云端字卡库、表情包库、曲库合并进本机 mochi 字卡。不改动站点任何代码，仅在浏览器里以用户脚本运行。
 // @match        *://*/*
 // @run-at       document-start
@@ -167,11 +167,76 @@
   }
 
   // ============================ 字卡 ============================
+  /**
+   * 旧结构迁移清理。
+   *
+   * cy-chat 的字卡在 2026-10 从「一个 customReplies 装 1521 条」拆成了七个分类
+   * （daily / connect / address / quotes / sweet / kaomoji / emoji）。旧结构时期本脚本
+   * 把这 1521 条写进「云端·自定义回复」一个组，升级后新分类会各自建组，旧组没人清，
+   * 于是同一批字卡在库里出现两遍（1521 + 1521）。
+   *
+   * 清理条件严格：只有在「云端已经是新结构（存在 wordMap 里没配的分类）」且
+   * 「该旧分类已经从云端消失」时才动，并且逐条比对内容——
+   *   · 组内每一条都能在云端找到 → 说明这组就是旧结构的完整副本，整组删除；
+   *   · 只要有一条对不上（用户自己往这组里加过东西）→ 保留这组，只摘掉能对上的。
+   * 云端若退回旧结构，本函数直接返回 0，绝不误删。
+   *
+   * @returns {number} 被移除的条目数
+   */
+  function purgeLegacyGroups(pack, cats) {
+    var hasNewShape = Object.keys(cats).some(function (k) { return !CFG.wordMap[k]; });
+    if (!hasNewShape) return 0;
+
+    var cloud = Object.create(null);
+    var cloudCount = 0;
+    Object.keys(cats).forEach(function (k) {
+      (cats[k].items || []).forEach(function (it) {
+        var t = String((it && it.text) || '').trim();
+        if (t) { cloud[t] = 1; cloudCount++; }
+      });
+    });
+    if (!cloudCount) return 0;
+
+    // 旧组名 = wordMap 里配过、但云端已经没有这个分类的那些
+    var legacy = [];
+    Object.keys(CFG.wordMap).forEach(function (k) {
+      if (cats[k]) return;
+      var g = CFG.wordMap[k] && CFG.wordMap[k].group;
+      if (g && legacy.indexOf(g) < 0) legacy.push(g);
+    });
+    if (!legacy.length) return 0;
+
+    var removed = 0;
+    CC_TYPES.forEach(function (type) {
+      var groups = pack[type];
+      if (!Array.isArray(groups)) return;
+      for (var i = groups.length - 1; i >= 0; i--) {
+        var g = groups[i];
+        if (!g || legacy.indexOf(g[0]) < 0 || !Array.isArray(g[1])) continue;
+        var keep = [];
+        g[1].forEach(function (x) {
+          if (cloud[String(x).trim()]) removed++; else keep.push(x);
+        });
+        if (!keep.length) {
+          groups.splice(i, 1);
+          log('迁移清理：删除旧组「' + g[0] + '」');
+        } else if (keep.length !== g[1].length) {
+          g[1] = keep;
+          log('迁移清理：旧组「' + g[0] + '」保留 ' + keep.length + ' 条自有内容');
+        }
+      }
+    });
+    return removed;
+  }
+
   function syncWord() {
     if (!window.xyStore) return Promise.resolve(0);
     return fetchJson(CFG.wordUrl).then(function (data) {
       var sig = (data && (data.updatedAt || '') + '|' + (data.version || '')) || '';
-      if (sig && mirror.wordSig === sig) { log('字卡无更新，跳过'); return 0; }
+      /* 旧版脚本没有 purgeSig：升级后必须放行一次清理检查，
+         否则云端内容没变（sig 相同）会直接跳过，孤立的旧组永远清不掉。 */
+      var purgePending = !!sig && mirror.purgeSig !== sig;
+      if (sig && mirror.wordSig === sig && !purgePending) { log('字卡无更新，跳过'); return 0; }
       var cats = (data && data.categories) || {};
       var keys = Object.keys(cats);
       if (!keys.length) return 0;
@@ -180,6 +245,13 @@
         if (raw === null) return 0;                 // 权威库没问到 → 本轮放弃
         var pack = parsePack(raw);
         var added = 0;
+
+        /* 先清理再新增：新增只会往新组里写，顺序不影响正确性，
+           但先清可以让「只清不增」的情况也走到下面的写回。 */
+        var purged = purgeLegacyGroups(pack, cats);
+        if (purged) log('迁移清理：移除旧结构重复字卡 ' + purged + ' 条');
+        if (purgePending) mirror.purgeSig = sig;    // 这一版数据检查过了，下次不必重查
+
         keys.forEach(function (ck) {
           var c = cats[ck] || {};
           var items = c.items || [];
@@ -200,10 +272,10 @@
             added++;
           });
         });
-        if (!added) { mirror.wordSig = sig; return 0; }
+        if (!added && !purged) { mirror.wordSig = sig; return 0; }
         writeCardPack(pack);
         mirror.wordSig = sig;
-        log('字卡新增 ' + added + ' 条');
+        log('字卡新增 ' + added + ' 条' + (purged ? '，清理旧结构 ' + purged + ' 条' : ''));
         return added;
       });
     }).catch(function (e) { log('字卡同步失败（静默）', e && e.message); return 0; });
