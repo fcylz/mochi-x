@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Mochi 云端字卡 / 表情包 / 曲库 自动同步
 // @namespace    mochi-cloud-sync
-// @version      1.1.0
+// @version      1.2.0
 // @description  打开页面即自动把你的云端字卡库、表情包库、曲库合并进本机 mochi 字卡。不改动站点任何代码，仅在浏览器里以用户脚本运行。
 // @match        *://*/*
 // @run-at       document-start
@@ -48,11 +48,28 @@
     // 'own'    = 当前联系人的专属库（xy-home-v2:<cid>:cc-groups）
     cardScope: 'public',
     // 云端分类 → mochi 字卡分类 + 分组名。未列出的分类按 defaultWordType 落到「云端·<label>」
+    // 七分类于 2026-10 上线：只有颜文字 / emoji 在 mochi 有独立分类 tab，
+    // 另外五个（日常/连接/称呼/官方语录/情话）是文本类，统一进主字卡。
+    // 刻意不映射表情包/图片/语音：云端字卡是纯文本，写进媒体分类只会得到破图与坏语音。
     wordMap: {
       customReplies: { type: 'text', group: '云端·自定义回复' },
       pokes: { type: 'poke', group: '云端·戳一戳' },
-      statuses: { type: 'text', group: '云端·状态' }
+      statuses: { type: 'text', group: '云端·状态' },
+      daily: { type: 'text', group: '云端·日常' },
+      connect: { type: 'text', group: '云端·连接' },
+      address: { type: 'text', group: '云端·称呼' },
+      quotes: { type: 'text', group: '云端·官方语录' },
+      sweet: { type: 'text', group: '云端·情话' },
+      kaomoji: { type: 'kaomoji', group: '云端·颜文字' },
+      emoji: { type: 'emoji', group: '云端·emoji' }
     },
+    // 旧结构时期的三分类。单列一份是因为 wordMap 现在配满了七分类，
+    // 若仍用「wordMap 里没有的 key」判断云端是否已换新结构，会永远判成旧结构，
+    // 旧组清理就再也不会触发。
+    legacyWordKeys: ['customReplies', 'pokes', 'statuses'],
+    // true = 目标分类下若已有用户自己建的同名分组（去掉「云端·」前缀后相同），
+    // 就把卡片并进去，而不是并排再建一个「云端·X」
+    mergeSameNameGroup: true,
     defaultWordType: 'text',
     stickerGroupPrefix: '云端·',
     musicPlaylistId: 'default',     // 'default' = 未分类；'spl_default' = 内置默认歌单
@@ -166,6 +183,32 @@
     return g[1];
   }
 
+  /**
+   * 云端分类落组：组与组之间能不能匹配，就看这里。
+   *
+   * 目标分类 type 下按顺序找：
+   *   ① 「云端·<label>」——上一轮云端导入建的组，重复导入不会分裂成两个同名组
+   *   ② 「<label>」——用户自己建的同名分组（mergeSameNameGroup 开启时）→ 并进去，
+   *      不再并排建一个「云端·<label>」，避免同一类字卡在库里出现两份组织
+   *   ③ 都没有，才新建「云端·<label>」
+   *
+   * @returns {{arr: Array, merged: boolean}}
+   */
+  function resolveWordGroup(pack, type, bare) {
+    if (!Array.isArray(pack[type])) pack[type] = [];
+    var prefixed = CFG.stickerGroupPrefix + bare;
+    var i;
+    for (i = 0; i < pack[type].length; i++) {
+      if (pack[type][i] && pack[type][i][0] === prefixed) return { arr: pack[type][i][1], merged: false };
+    }
+    if (CFG.mergeSameNameGroup !== false) {
+      for (i = 0; i < pack[type].length; i++) {
+        if (pack[type][i] && pack[type][i][0] === bare) return { arr: pack[type][i][1], merged: true };
+      }
+    }
+    return { arr: ensureGroup(pack, type, prefixed), merged: false };
+  }
+
   // ============================ 字卡 ============================
   /**
    * 旧结构迁移清理。
@@ -175,7 +218,7 @@
    * 把这 1521 条写进「云端·自定义回复」一个组，升级后新分类会各自建组，旧组没人清，
    * 于是同一批字卡在库里出现两遍（1521 + 1521）。
    *
-   * 清理条件严格：只有在「云端已经是新结构（存在 wordMap 里没配的分类）」且
+   * 清理条件严格：只有在「云端已经是新结构（出现了 legacyWordKeys 之外的分类）」且
    * 「该旧分类已经从云端消失」时才动，并且逐条比对内容——
    *   · 组内每一条都能在云端找到 → 说明这组就是旧结构的完整副本，整组删除；
    *   · 只要有一条对不上（用户自己往这组里加过东西）→ 保留这组，只摘掉能对上的。
@@ -184,7 +227,11 @@
    * @returns {number} 被移除的条目数
    */
   function purgeLegacyGroups(pack, cats) {
-    var hasNewShape = Object.keys(cats).some(function (k) { return !CFG.wordMap[k]; });
+    var LEGACY = CFG.legacyWordKeys || ['customReplies', 'pokes', 'statuses'];
+    // 「云端已换新结构」的判据：出现了旧三分类之外的分类。
+    // 不能写成「出现了 wordMap 里没配的分类」——七分类现已全部配进 wordMap，
+    // 那样会永远判成旧结构，旧组再也清不掉。
+    var hasNewShape = Object.keys(cats).some(function (k) { return LEGACY.indexOf(k) < 0; });
     if (!hasNewShape) return 0;
 
     var cloud = Object.create(null);
@@ -197,9 +244,9 @@
     });
     if (!cloudCount) return 0;
 
-    // 旧组名 = wordMap 里配过、但云端已经没有这个分类的那些
+    // 旧组名 = legacyWordKeys 里配过、但云端已经没有这个分类的那些
     var legacy = [];
-    Object.keys(CFG.wordMap).forEach(function (k) {
+    LEGACY.forEach(function (k) {
       if (cats[k]) return;
       var g = CFG.wordMap[k] && CFG.wordMap[k].group;
       if (g && legacy.indexOf(g) < 0) legacy.push(g);
@@ -245,6 +292,7 @@
         if (raw === null) return 0;                 // 权威库没问到 → 本轮放弃
         var pack = parsePack(raw);
         var added = 0;
+        var mergedNames = [];
 
         /* 先清理再新增：新增只会往新组里写，顺序不影响正确性，
            但先清可以让「只清不增」的情况也走到下面的写回。 */
@@ -258,9 +306,15 @@
           if (!items.length) return;
           var m = CFG.wordMap[ck];
           var type = (m && m.type) || CFG.defaultWordType;
-          var group = (m && m.group) || (CFG.stickerGroupPrefix + (c.label || ck));
           if (CC_TYPES.indexOf(type) < 0) type = CFG.defaultWordType;
-          var arr = ensureGroup(pack, type, group);
+          var group = (m && m.group) || (CFG.stickerGroupPrefix + (c.label || ck));
+          // 组名去掉「云端·」就是裸名：拿它去和用户自己建的分组比对，同名则并入
+          var bare = group.indexOf(CFG.stickerGroupPrefix) === 0 ? group.slice(CFG.stickerGroupPrefix.length) : group;
+          var hit = ((CFG.legacyWordKeys || []).indexOf(ck) >= 0)
+            ? { arr: ensureGroup(pack, type, group), merged: false }   // 旧分类不参与同名合并，免得清错组
+            : resolveWordGroup(pack, type, bare);
+          if (hit.merged && mergedNames.indexOf(bare) < 0) mergedNames.push(bare);
+          var arr = hit.arr;
           var seen = {};
           arr.forEach(function (x) { seen[String(x)] = 1; });
           items.forEach(function (it) {
@@ -275,7 +329,8 @@
         if (!added && !purged) { mirror.wordSig = sig; return 0; }
         writeCardPack(pack);
         mirror.wordSig = sig;
-        log('字卡新增 ' + added + ' 条' + (purged ? '，清理旧结构 ' + purged + ' 条' : ''));
+        log('字卡新增 ' + added + ' 条' + (mergedNames.length ? '，并入已有分组 ' + mergedNames.join('/') : '')
+          + (purged ? '，清理旧结构 ' + purged + ' 条' : ''));
         return added;
       });
     }).catch(function (e) { log('字卡同步失败（静默）', e && e.message); return 0; });

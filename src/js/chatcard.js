@@ -3679,6 +3679,12 @@
     }
   }
   // ===== 文字字卡导入主管线（模块级）=====
+  // 云端分类 → 字卡分类 tab。
+  // cy-chat 的七分类里只有「颜文字」「emoji」在 mochi 有独立 tab；另外五个（日常 /
+  // 连接 / 称呼 / 官方语录 / 情话）都是文本类，统一进主字卡。
+  // 刻意不映射表情包/图片/语音：云端字卡是纯文本，写进媒体分类会变成破图与坏语音。
+  const CLOUD_TYPE_BY_LABEL = { '颜文字': 'kaomoji', 'emoji': 'emoji' };
+  const CLOUD_GROUP_PREFIX = '云端·';
   // 2026-10-22：从「批量导入字卡」弹窗的回调闭包里原样提升出来，给弹窗与工具栏
   // 「云端字卡」按钮共用同一条写入路径（去重/分组/落库/刷新/toast 一字不改），
   // 不另起一套——本族历史教训是「手抄必漏」。
@@ -3689,9 +3695,28 @@
     if (!lines.length) { toast('没有可导入的内容'); return; }
     if (!groups[cur]) groups[cur] = [];
     let curGrp = null;
+    let curType = cur;   // 当前行该落的分类：普通行＝当前 tab，云端行按 label 改写成目标分类
     let imported = 0;
     let dup = 0;
     let newGroups = 0;
+    const mergedGroups = [];   // 并入用户已有同名分组的（云端分类名）
+    // 云端组名 → {分类, 分组对象}。命中顺序不能换：
+    //   ① 上一轮云端导入建的「云端·X」——重复导入不会分裂成两个同名组
+    //   ② 用户自己建的完全同名分组「X」——这就是「组与组匹配」，并进去，不并排再建一个
+    //   ③ 都没有，才新建「云端·X」
+    const resolveCloudGroup = (gname) => {
+      const bare = gname.slice(CLOUD_GROUP_PREFIX.length);
+      const type = (Object.prototype.hasOwnProperty.call(CLOUD_TYPE_BY_LABEL, bare) ? CLOUD_TYPE_BY_LABEL[bare] : 'text');
+      if (!groups[type]) groups[type] = [];
+      const arr = groups[type];
+      let g = arr.find(x => x[0] === gname);
+      if (!g) {
+        g = arr.find(x => x[0] === bare);
+        if (g) mergedGroups.push(bare);
+      }
+      if (!g) { g = [gname, []]; arr.push(g); newGroups++; }
+      return { type: type, g: g };
+    };
     // 同一分组内自动去重：分组已有字卡 + 本次已导入的都算，重复内容跳过
     const seenMap = new Map();
     const pushCard = (g, card) => {
@@ -3711,18 +3736,27 @@
       const m = line.match(/^[【\[](.*?)[】\]](.*)$/);
       if (m && m[1].trim()) {
         const gname = m[1].trim();
-        let g = groups[cur].find(g => g[0] === gname);
-        if (!g) { g = [gname, []]; groups[cur].push(g); newGroups++; }
-        curGrp = g;
+        if (gname.indexOf(CLOUD_GROUP_PREFIX) === 0 && gname.length > CLOUD_GROUP_PREFIX.length) {
+          // 云端整库导入：按 label 分流到对应分类，分组名走合并规则
+          const r = resolveCloudGroup(gname);
+          curType = r.type;
+          curGrp = r.g;
+        } else {
+          let g = groups[cur].find(x => x[0] === gname);
+          if (!g) { g = [gname, []]; groups[cur].push(g); newGroups++; }
+          curType = cur;
+          curGrp = g;
+        }
         const rest = (m[2] || '').trim();
-        if (rest && pushCard(g, rest)) imported++;
+        if (rest && pushCard(curGrp, rest)) imported++;
         return;
       }
       if (curGrp) {
         if (pushCard(curGrp, line)) imported++;
       } else {
-        let g = groups[cur].find(g => g[0] === '未分组');
-        if (!g) { g = ['未分组', []]; groups[cur].push(g); newGroups++; }
+        if (!groups[curType]) groups[curType] = [];
+        let g = groups[curType].find(x => x[0] === '未分组');
+        if (!g) { g = ['未分组', []]; groups[curType].push(g); newGroups++; }
         if (pushCard(g, line)) imported++;
       }
     });
@@ -3732,12 +3766,13 @@
     scheduleSave();
     renderGroupsBar();
     render();
-    toast('已导入 ' + imported + ' 条字卡' + (dup ? '，自动去重 ' + dup + ' 条' : '') + (newGroups ? '，新建 ' + newGroups + ' 个分组' : ''));
+    toast('已导入 ' + imported + ' 条字卡' + (dup ? '，自动去重 ' + dup + ' 条' : '') + (newGroups ? '，新建 ' + newGroups + ' 个分组' : '')
+      + (mergedGroups.length ? '，并入已有分组 ' + mergedGroups.join('/') : ''));
   }
-  // 云端字卡按钮入口：按钮只在文字分类显形（syncCloudVis），这里再兜一道分类守卫，
-  // 避免任何时序下把文字卡写进表情包/图片/语音分类
+  // 云端字卡按钮入口。分类由组名（云端·颜文字 / 云端·emoji）决定，与当前 tab 无关，
+  // 所以这里只挡媒体分类：媒体导入走的是图片/音频管线，塞文本进去只会得到破图坏语音。
   window.ccCloudImportText = function (text) {
-    if (IMG_TYPES[cur]) { toast('云端字卡只能导入到文字分类，请先切到一个字卡分类'); return; }
+    if (IMG_TYPES[cur]) { toast('云端字卡是文本内容，请先切到主字卡/颜文字/emoji 分类'); return; }
     ccImportTextLines(text, '');
   };
 

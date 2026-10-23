@@ -69,7 +69,10 @@ const wordRes = await retry(() => CI.fetchAny('word', ''));
 const wordText = wordRes.text;
 const wordLines = wordText.split('\n');
 assert('字卡一键拉取（fetchAny 命中镜像）', !!wordText, '命中 ' + wordRes.url + '，试了 ' + wordRes.tried + ' 个');
-assert('字卡展开：含【云端·自定义回复】分组头', wordLines[0] === '【云端·自定义回复】', wordLines[0]);
+// 字卡已从「一个 customReplies」拆成七分类，分组头不再固定是「云端·自定义回复」；
+// 只校验「有【云端·<label>】形式的头」，具体有哪些分类由云端数据决定
+const wordHeads = wordLines.filter(l => /^【云端·.+】$/.test(l));
+assert('字卡展开：分组头带「云端·」前缀', wordHeads.length > 0, wordHeads.slice(0, 4).join(' ') + (wordHeads.length > 4 ? ' …共 ' + wordHeads.length + ' 个' : ''));
 assert('字卡展开：条数 > 1000', wordLines.length > 1000, wordLines.length + ' 行');
 
 const memeRes = await retry(() => CI.fetchAny('meme', ''));
@@ -154,8 +157,11 @@ try {
   console.log('字卡落库：', JSON.stringify(await page.evaluate(() => {
     const raw = localStorage.getItem('xy-home-v2:cc-groups-public') || '';
     let o = {}; try { o = JSON.parse(raw); } catch (e) {}
-    const g = (o.text || []).find(x => x[0] === '云端·自定义回复');
-    return { hasGroup: !!g, count: g ? g[1].length : 0, bytes: raw.length };
+    // 云端正文字卡落主字卡、颜文字/emoji 各自落到自己的分类，这里三个分类一起看
+    const dump = (t) => (o[t] || []).map(x => x[0] + '(' + (x[1] || []).length + ')');
+    const total = ['text', 'kaomoji', 'emoji']
+      .reduce((n, t) => n + (o[t] || []).reduce((s, x) => s + (x[1] || []).length, 0), 0);
+    return { total, text: dump('text'), kaomoji: dump('kaomoji'), emoji: dump('emoji'), bytes: raw.length };
   })));
 } catch (e) { console.log('⚠ UI 端到端跳过：' + e.message); }
 console.log('页面错误：', JSON.stringify(errs.slice(0, 10), null, 2));

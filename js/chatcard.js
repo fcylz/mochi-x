@@ -2947,14 +2947,31 @@ b.remove();
 }).observe(mask, { attributes: true, attributeFilter: ['hidden'] });
 }
 }
+const CLOUD_TYPE_BY_LABEL = { '颜文字': 'kaomoji', 'emoji': 'emoji' };
+const CLOUD_GROUP_PREFIX = '云端·';
 function ccImportTextLines(text, targetGroup) {
 const lines = String(text || '').split(/\r\n|\r|\n/).map(l => l.trim()).filter(Boolean);
 if (!lines.length) { toast('没有可导入的内容'); return; }
 if (!groups[cur]) groups[cur] = [];
 let curGrp = null;
+let curType = cur;   // 当前行该落的分类：普通行＝当前 tab，云端行按 label 改写成目标分类
 let imported = 0;
 let dup = 0;
 let newGroups = 0;
+const mergedGroups = [];   // 并入用户已有同名分组的（云端分类名）
+const resolveCloudGroup = (gname) => {
+const bare = gname.slice(CLOUD_GROUP_PREFIX.length);
+const type = (Object.prototype.hasOwnProperty.call(CLOUD_TYPE_BY_LABEL, bare) ? CLOUD_TYPE_BY_LABEL[bare] : 'text');
+if (!groups[type]) groups[type] = [];
+const arr = groups[type];
+let g = arr.find(x => x[0] === gname);
+if (!g) {
+g = arr.find(x => x[0] === bare);
+if (g) mergedGroups.push(bare);
+}
+if (!g) { g = [gname, []]; arr.push(g); newGroups++; }
+return { type: type, g: g };
+};
 const seenMap = new Map();
 const pushCard = (g, card) => {
 let seen = seenMap.get(g);
@@ -2973,28 +2990,37 @@ lines.forEach(line => {
 const m = line.match(/^[【\[](.*?)[】\]](.*)$/);
 if (m && m[1].trim()) {
 const gname = m[1].trim();
-let g = groups[cur].find(g => g[0] === gname);
+if (gname.indexOf(CLOUD_GROUP_PREFIX) === 0 && gname.length > CLOUD_GROUP_PREFIX.length) {
+const r = resolveCloudGroup(gname);
+curType = r.type;
+curGrp = r.g;
+} else {
+let g = groups[cur].find(x => x[0] === gname);
 if (!g) { g = [gname, []]; groups[cur].push(g); newGroups++; }
+curType = cur;
 curGrp = g;
+}
 const rest = (m[2] || '').trim();
-if (rest && pushCard(g, rest)) imported++;
+if (rest && pushCard(curGrp, rest)) imported++;
 return;
 }
 if (curGrp) {
 if (pushCard(curGrp, line)) imported++;
 } else {
-let g = groups[cur].find(g => g[0] === '未分组');
-if (!g) { g = ['未分组', []]; groups[cur].push(g); newGroups++; }
+if (!groups[curType]) groups[curType] = [];
+let g = groups[curType].find(x => x[0] === '未分组');
+if (!g) { g = ['未分组', []]; groups[curType].push(g); newGroups++; }
 if (pushCard(g, line)) imported++;
 }
 });
 scheduleSave();
 renderGroupsBar();
 render();
-toast('已导入 ' + imported + ' 条字卡' + (dup ? '，自动去重 ' + dup + ' 条' : '') + (newGroups ? '，新建 ' + newGroups + ' 个分组' : ''));
+toast('已导入 ' + imported + ' 条字卡' + (dup ? '，自动去重 ' + dup + ' 条' : '') + (newGroups ? '，新建 ' + newGroups + ' 个分组' : '')
++ (mergedGroups.length ? '，并入已有分组 ' + mergedGroups.join('/') : ''));
 }
 window.ccCloudImportText = function (text) {
-if (IMG_TYPES[cur]) { toast('云端字卡只能导入到文字分类，请先切到一个字卡分类'); return; }
+if (IMG_TYPES[cur]) { toast('云端字卡是文本内容，请先切到主字卡/颜文字/emoji 分类'); return; }
 ccImportTextLines(text, '');
 };
 const impBtn = document.getElementById('cc-import');
