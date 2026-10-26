@@ -1,9 +1,11 @@
 // ==UserScript==
 // @name         Mochi 云端字卡 / 表情包 / 曲库 自动同步
 // @namespace    mochi-cloud-sync
-// @version      1.4.0
+// @version      1.5.0
 // @description  打开页面即自动把你的云端字卡库、表情包库、曲库合并进本机 mochi 字卡。不改动站点任何代码，仅在浏览器里以用户脚本运行。
 // @match        *://*/*
+// @updateURL    https://raw.githubusercontent.com/fcylz/mochi-x/main/tools/cloud-sync/mochi-cloud-sync.user.js
+// @downloadURL  https://raw.githubusercontent.com/fcylz/mochi-x/main/tools/cloud-sync/mochi-cloud-sync.user.js
 // @run-at       document-start
 // @grant        none
 // ==/UserScript==
@@ -121,6 +123,7 @@
     try { console.log.apply(console, ['[cloud-sync]'].concat([].slice.call(arguments))); } catch (e) {}
   }
   var mirror = loadMirror();
+  var adoptedWordGroups = 0;   // 本轮因分组归位而搬迁的组数（syncWord 前后取差值）
 
   function loadMirror() {
     try { return JSON.parse(localStorage.getItem(MIRROR_KEY) || '{}') || {}; } catch (e) { return {}; }
@@ -218,6 +221,8 @@
    *   ② 「<label>」——用户自己建的同名分组（mergeSameNameGroup 开启时）→ 并进去，
    *      不再并排建一个「云端·<label>」，避免同一类字卡在库里出现两份组织
    *   ③ 都没有，才新建「云端·<label>」
+   *   ③' 建之前先扫其它分类里错位的「云端·<label>」（旧版本映射表还没有这个 label
+   *      时留下的，例如 1.4.0 之前的拍一拍、1.3.0 之前的 13 个功能分类），有就整组搬过来。
    *
    * @returns {{arr: Array, merged: boolean}}
    */
@@ -233,7 +238,36 @@
         if (pack[type][i] && pack[type][i][0] === bare) return { arr: pack[type][i][1], merged: true };
       }
     }
+    var moved = adoptMisplacedWordGroup(pack, type, prefixed);
+    if (moved) return { arr: moved[1], merged: false, adopted: true };
     return { arr: ensureGroup(pack, type, prefixed), merged: false };
+  }
+
+  /**
+   * 把错落在别的分类里的「云端·<label>」组搬到它该去的分类。
+   *
+   * 只认带云端前缀的组名：那是脚本自己建的，位置错了就是 bug，整组搬走不丢内容。
+   * 用户自建的同名组（不带前缀）不动——那是人家自己的组织架构，不该被挪。
+   *
+   * @returns {Array|null} 被搬走的组 [name, cards]
+   */
+  function adoptMisplacedWordGroup(pack, type, prefixed) {
+    for (var k in pack) {
+      if (!Object.prototype.hasOwnProperty.call(pack, k) || k === type) continue;
+      var src = pack[k];
+      if (!Array.isArray(src)) continue;
+      for (var i = 0; i < src.length; i++) {
+        var g = src[i];
+        if (!g || g[0] !== prefixed || !Array.isArray(g[1])) continue;
+        src.splice(i, 1);
+        if (!Array.isArray(pack[type])) pack[type] = [];
+        pack[type].push(g);
+        adoptedWordGroups++;
+        log('分组归位：' + prefixed + '  ' + k + ' → ' + type);
+        return g;
+      }
+    }
+    return null;
   }
 
   // ============================ 字卡 ============================
@@ -310,7 +344,11 @@
       /* 旧版脚本没有 purgeSig：升级后必须放行一次清理检查，
          否则云端内容没变（sig 相同）会直接跳过，孤立的旧组永远清不掉。 */
       var purgePending = !!sig && mirror.purgeSig !== sig;
-      if (sig && mirror.wordSig === sig && !purgePending) { log('字卡无更新，跳过'); return 0; }
+      /* 归位检查同理：升级到带「分组归位」的版本后，即使云端内容没变（sig 相同）也必须
+         放行一次——否则老用户库里那些错落在主字卡的「云端·拍一拍 / 云端·摸鱼」永远搬不走，
+         界面看上去就是「映射改了但没生效」。 */
+      var adoptPending = !!sig && mirror.adoptSig !== sig;
+      if (sig && mirror.wordSig === sig && !purgePending && !adoptPending) { log('字卡无更新，跳过'); return 0; }
       var cats = (data && data.categories) || {};
       var keys = Object.keys(cats);
       if (!keys.length) return 0;
@@ -320,12 +358,14 @@
         var pack = parsePack(raw);
         var added = 0;
         var mergedNames = [];
+        var adoptedBefore = adoptedWordGroups;
 
         /* 先清理再新增：新增只会往新组里写，顺序不影响正确性，
            但先清可以让「只清不增」的情况也走到下面的写回。 */
         var purged = purgeLegacyGroups(pack, cats);
         if (purged) log('迁移清理：移除旧结构重复字卡 ' + purged + ' 条');
         if (purgePending) mirror.purgeSig = sig;    // 这一版数据检查过了，下次不必重查
+        if (adoptPending) mirror.adoptSig = sig;
 
         keys.forEach(function (ck) {
           var c = cats[ck] || {};
@@ -353,11 +393,13 @@
             added++;
           });
         });
-        if (!added && !purged) { mirror.wordSig = sig; return 0; }
+        var adopted = adoptedWordGroups - adoptedBefore;
+        if (!added && !purged && !adopted) { mirror.wordSig = sig; return 0; }
         writeCardPack(pack);
         mirror.wordSig = sig;
         log('字卡新增 ' + added + ' 条' + (mergedNames.length ? '，并入已有分组 ' + mergedNames.join('/') : '')
-          + (purged ? '，清理旧结构 ' + purged + ' 条' : ''));
+          + (purged ? '，清理旧结构 ' + purged + ' 条' : '')
+          + (adopted ? '，' + adopted + ' 个分组归位到正确分类' : ''));
         return added;
       });
     }).catch(function (e) { log('字卡同步失败（静默）', e && e.message); return 0; });

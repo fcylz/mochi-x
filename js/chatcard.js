@@ -2975,7 +2975,23 @@ let curType = cur;   // 当前行该落的分类：普通行＝当前 tab，云�
 let imported = 0;
 let dup = 0;
 let newGroups = 0;
+let adopted = 0;           // 从别的分类归位过来的组数（旧版本遗留的错位）
 const mergedGroups = [];   // 并入用户已有同名分组的（云端分类名）
+const adoptMisplacedGroup = (type, gname) => {
+for (const k of Object.keys(groups)) {
+if (k === type) continue;
+const src = groups[k];
+if (!Array.isArray(src)) continue;
+for (let i = 0; i < src.length; i++) {
+const gg = src[i];
+if (!Array.isArray(gg) || gg[0] !== gname || !Array.isArray(gg[1])) continue;
+src.splice(i, 1);
+adopted++;
+return gg;
+}
+}
+return null;
+};
 const resolveCloudGroup = (gname) => {
 const bare = gname.slice(CLOUD_GROUP_PREFIX.length);
 const type = (Object.prototype.hasOwnProperty.call(CLOUD_TYPE_BY_LABEL, bare) ? CLOUD_TYPE_BY_LABEL[bare] : 'text');
@@ -2985,6 +3001,10 @@ let g = arr.find(x => x[0] === gname);
 if (!g) {
 g = arr.find(x => x[0] === bare);
 if (g) mergedGroups.push(bare);
+}
+if (!g) {
+const moved = adoptMisplacedGroup(type, gname);
+if (moved) { arr.push(moved); g = moved; }
 }
 if (!g) { g = [gname, []]; arr.push(g); newGroups++; }
 return { type: type, g: g };
@@ -3034,6 +3054,7 @@ scheduleSave();
 renderGroupsBar();
 render();
 toast('已导入 ' + imported + ' 条字卡' + (dup ? '，自动去重 ' + dup + ' 条' : '') + (newGroups ? '，新建 ' + newGroups + ' 个分组' : '')
++ (adopted ? '，' + adopted + ' 个分组归位到正确分类' : '')
 + (mergedGroups.length ? '，并入已有分组 ' + mergedGroups.join('/') : ''));
 }
 window.ccCloudImportText = function (text) {

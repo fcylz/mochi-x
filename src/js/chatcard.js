@@ -3723,11 +3723,33 @@
     let imported = 0;
     let dup = 0;
     let newGroups = 0;
+    let adopted = 0;           // 从别的分类归位过来的组数（旧版本遗留的错位）
     const mergedGroups = [];   // 并入用户已有同名分组的（云端分类名）
+    // 旧版本遗留的错位组归位。映射表里还没有某个 label 时（例如 1.4.0 之前的「拍一拍」、
+    // 1.3.0 之前的 13 个功能分类），云端那一组会被建在**主字卡**下；升级后只在目标分类里
+    // 找同名组，老组就永远留在 text 里，界面上看起来就是「拍一拍跑进主字卡了」。
+    // 这里把「云端·X」整组搬到它本该去的分类：卡片一张不丢，只是换 tab。
+    // 只认「云端·」开头的组名——用户自建的同名组（「拍一拍」）不搬，避免挪动别人自己的组织架构。
+    const adoptMisplacedGroup = (type, gname) => {
+      for (const k of Object.keys(groups)) {
+        if (k === type) continue;
+        const src = groups[k];
+        if (!Array.isArray(src)) continue;
+        for (let i = 0; i < src.length; i++) {
+          const gg = src[i];
+          if (!Array.isArray(gg) || gg[0] !== gname || !Array.isArray(gg[1])) continue;
+          src.splice(i, 1);
+          adopted++;
+          return gg;
+        }
+      }
+      return null;
+    };
     // 云端组名 → {分类, 分组对象}。命中顺序不能换：
     //   ① 上一轮云端导入建的「云端·X」——重复导入不会分裂成两个同名组
     //   ② 用户自己建的完全同名分组「X」——这就是「组与组匹配」，并进去，不并排再建一个
     //   ③ 都没有，才新建「云端·X」
+    //   ③' 建之前先找其它分类里错位的「云端·X」（旧版本留下的），有就整组搬过来
     const resolveCloudGroup = (gname) => {
       const bare = gname.slice(CLOUD_GROUP_PREFIX.length);
       const type = (Object.prototype.hasOwnProperty.call(CLOUD_TYPE_BY_LABEL, bare) ? CLOUD_TYPE_BY_LABEL[bare] : 'text');
@@ -3737,6 +3759,10 @@
       if (!g) {
         g = arr.find(x => x[0] === bare);
         if (g) mergedGroups.push(bare);
+      }
+      if (!g) {
+        const moved = adoptMisplacedGroup(type, gname);
+        if (moved) { arr.push(moved); g = moved; }
       }
       if (!g) { g = [gname, []]; arr.push(g); newGroups++; }
       return { type: type, g: g };
@@ -3791,6 +3817,7 @@
     renderGroupsBar();
     render();
     toast('已导入 ' + imported + ' 条字卡' + (dup ? '，自动去重 ' + dup + ' 条' : '') + (newGroups ? '，新建 ' + newGroups + ' 个分组' : '')
+      + (adopted ? '，' + adopted + ' 个分组归位到正确分类' : '')
       + (mergedGroups.length ? '，并入已有分组 ' + mergedGroups.join('/') : ''));
   }
   // 云端字卡按钮入口。分类由组名（云端·颜文字 / 云端·emoji）决定，与当前 tab 无关，
