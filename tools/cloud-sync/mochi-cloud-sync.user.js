@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Mochi 云端字卡 / 表情包 / 曲库 自动同步
 // @namespace    mochi-cloud-sync
-// @version      1.5.0
+// @version      1.6.0
 // @description  打开页面即自动把你的云端字卡库、表情包库、曲库合并进本机 mochi 字卡。不改动站点任何代码，仅在浏览器里以用户脚本运行。
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/fcylz/mochi-x/main/tools/cloud-sync/mochi-cloud-sync.user.js
@@ -40,9 +40,22 @@
     // —— 云端端点 ——
     // 2026-10-22：cdn.jsdelivr.net 实测连不上（curl 000），换 fastly 镜像
     // （同目录同文件，200 正常返回；gcore.jsdelivr.net 也可用）。站点内置同理。
-    wordUrl: 'https://fastly.jsdelivr.net/gh/fcylz/cy-chat@main/Word/word.json',
+    //
+    // 2026-10-26 补：jsDelivr 各边缘节点的缓存进度是各自为政的（fastly 长期停在
+    // v2.1.0 / 20 类，gcore 与 cdn 已是 v2.2.0 / 21 类，含拍一拍），而加 ?t= 打在
+    // jsDelivr 上完全无效、还是命中同一份旧缓存。只配一个地址 = 可能永远拉旧数据
+    // （「手机拉到了拍一拍、电脑拉不到」）。所以字卡改成并发问一圈、挑 version 最高的，
+    // wordUrl 只是「一圈都失败时的兜底」与单源开关。
+    wordUrl: 'https://gcore.jsdelivr.net/gh/fcylz/cy-chat@main/Word/word.json',
+    wordMirrors: [
+      'https://gcore.jsdelivr.net/gh/fcylz/cy-chat@main/Word/word.json',
+      'https://fastly.jsdelivr.net/gh/fcylz/cy-chat@main/Word/word.json',
+      'https://cdn.jsdelivr.net/gh/fcylz/cy-chat@main/Word/word.json'
+    ],
+    mirrorTimeoutMs: 6000,          // 单个字卡镜像的等待上限（超时即当它失败）
     memeUrl: 'https://fastly.jsdelivr.net/gh/fcylz/cy-chat@main/Meme/meme.json',
     memeBase: 'https://fastly.jsdelivr.net/gh/fcylz/cy-chat@main/',
+    musicUrl: 'https://fcylz.github.io/cy-music/index.json',
     musicUrl: 'https://fcylz.github.io/cy-music/index.json',
 
     // —— 同步目标 ——
@@ -339,7 +352,7 @@
 
   function syncWord() {
     if (!window.xyStore) return Promise.resolve(0);
-    return fetchJson(CFG.wordUrl).then(function (data) {
+    return fetchWordJson().then(function (data) {
       var sig = (data && (data.updatedAt || '') + '|' + (data.version || '')) || '';
       /* 旧版脚本没有 purgeSig：升级后必须放行一次清理检查，
          否则云端内容没变（sig 相同）会直接跳过，孤立的旧组永远清不掉。 */
@@ -563,6 +576,69 @@
   function fetchJson(url) {
     return fetch(url + (url.indexOf('?') >= 0 ? '&' : '?') + 't=' + Date.now(), { cache: 'no-store' })
       .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+  }
+
+  // 带超时的单源取回：镜像里有一个连不上时，不能让整轮同步挂在它身上
+  function fetchJsonTimeout(url, ms) {
+    var ac = (typeof AbortController === 'function') ? new AbortController() : null;
+    var timer = null;
+    var opts = { cache: 'no-store' };
+    if (ac) { opts.signal = ac.signal; timer = setTimeout(function () { try { ac.abort(); } catch (e) {} }, ms); }
+    return fetch(url + (url.indexOf('?') >= 0 ? '&' : '?') + 't=' + Date.now(), opts)
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (d) { if (timer) clearTimeout(timer); return d; },
+        function (e) {
+          if (timer) clearTimeout(timer);
+          var aborted = !!(e && e.name === 'AbortError');
+          throw new Error(aborted ? ('超时（>' + (ms / 1000) + 's）') : ((e && e.message) || '网络失败'));
+        });
+  }
+
+  // '2.2.0' > '2.1.0'；缺失/非数字段按 0 处理
+  function cmpVersion(a, b) {
+    var pa = String(a || '0').split('.');
+    var pb = String(b || '0').split('.');
+    var n = Math.max(pa.length, pb.length);
+    for (var i = 0; i < n; i++) {
+      var x = parseInt(pa[i], 10) || 0;
+      var y = parseInt(pb[i], 10) || 0;
+      if (x !== y) return x - y;
+    }
+    return 0;
+  }
+
+  /**
+   * 字卡取源：并发问所有镜像，挑 version 最高的那份。
+   *
+   * 不能只用一个地址——jsDelivr 各边缘节点缓存进度不一致（2026-10-26 实测 fastly 停在
+   * v2.1.0 / 20 类，gcore 与 cdn 已是 v2.2.0 / 21 类），而 ?t= 这种查询参数打在 jsDelivr
+   * 上无效、仍命中同一份旧缓存。单地址 = 那个节点滞后就永远拉不到新分类。
+   *
+   * 全部失败才抛错；部分成功时用成功的里面版本最高的。
+   */
+  function fetchWordJson() {
+    var urls = (CFG.wordMirrors && CFG.wordMirrors.length) ? CFG.wordMirrors.slice() : [];
+    if (CFG.wordUrl && urls.indexOf(CFG.wordUrl) < 0) urls.unshift(CFG.wordUrl);
+    if (!urls.length) return Promise.reject(new Error('没有配置字卡地址'));
+    if (urls.length === 1) return fetchJson(urls[0]);
+    var ms = CFG.mirrorTimeoutMs || 6000;
+    return Promise.all(urls.map(function (u) {
+      return fetchJsonTimeout(u, ms).then(function (d) { return { url: u, data: d }; },
+        function (e) { return { url: u, err: (e && e.message) || '网络失败' }; });
+    })).then(function (list) {
+      var okList = list.filter(function (x) { return x && x.data; });
+      if (!okList.length) {
+        throw new Error('字卡镜像全失败：' + list.map(function (x) { return x.err; }).join('；'));
+      }
+      var best = okList[0];
+      for (var i = 1; i < okList.length; i++) {
+        if (cmpVersion(okList[i].data.version, best.data.version) > 0) best = okList[i];
+      }
+      log('字卡镜像：' + okList.map(function (x) {
+        return (x.data.version || '?') + '@' + (x.url.split('/')[2] || '?');
+      }).join(' / ') + ' → 选 ' + (best.data.version || '?'));
+      return best.data;
+    });
   }
 
   function fetchDataUrl(url) {

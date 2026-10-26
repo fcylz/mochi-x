@@ -6,8 +6,8 @@ var MAX_MEME_BYTES = 1024 * 1024;                  // 单张表情体积上限�
 var TRY_TIMEOUT = 8000;                            // 单个镜像的等待上限（超时即换下一个）
 var DEFAULTS = {
 word: [
-'https://fastly.jsdelivr.net/gh/fcylz/cy-chat@main/Word/word.json',
 'https://gcore.jsdelivr.net/gh/fcylz/cy-chat@main/Word/word.json',
+'https://fastly.jsdelivr.net/gh/fcylz/cy-chat@main/Word/word.json',
 'https://cdn.jsdelivr.net/gh/fcylz/cy-chat@main/Word/word.json'
 ],
 meme: [
@@ -136,25 +136,62 @@ remember(kind, url);
 return text;
 });
 }
-function fetchOne(url, kind) {
+function fetchOne(url, kind, timeoutMs) {
+var ms = timeoutMs || TRY_TIMEOUT;
 var ac = (typeof AbortController === 'function') ? new AbortController() : null;
 var timer = null;
 var opts = { cache: 'no-store' };
-if (ac) { opts.signal = ac.signal; timer = setTimeout(function () { try { ac.abort(); } catch (e) {} }, TRY_TIMEOUT); }
+if (ac) { opts.signal = ac.signal; timer = setTimeout(function () { try { ac.abort(); } catch (e) {} }, ms); }
 return fetch(url, opts).then(function (r) {
 if (!r.ok) throw new Error('HTTP ' + r.status);
 return r.json();
 }).then(function (data) {
 var text = expand(kind, data, url);
 if (!text) throw new Error('云端数据里没有可导入的内容');
-return text;
-}).then(function (text) {
+return { text: text, version: String((data && data.version) || '') };
+}).then(function (r) {
 if (timer) clearTimeout(timer);
-return text;
+return r;
 }, function (e) {
 if (timer) clearTimeout(timer);
 var aborted = !!(e && e.name === 'AbortError');
-throw new Error(aborted ? ('超时（>' + (TRY_TIMEOUT / 1000) + 's）') : ((e && e.message) || '网络失败'));
+throw new Error(aborted ? ('超时（>' + (ms / 1000) + 's）') : ((e && e.message) || '网络失败'));
+});
+}
+function cmpVersion(a, b) {
+var pa = String(a || '0').split('.');
+var pb = String(b || '0').split('.');
+var n = Math.max(pa.length, pb.length);
+for (var i = 0; i < n; i++) {
+var x = parseInt(pa[i], 10) || 0;
+var y = parseInt(pb[i], 10) || 0;
+if (x !== y) return x - y;
+}
+return 0;
+}
+var WORD_MIRROR_TIMEOUT = 4000;
+function fetchWordFreshest(urls) {
+var jobs = urls.map(function (url) {
+return fetchOne(url, 'word', WORD_MIRROR_TIMEOUT).then(function (r) {
+return { url: url, text: r.text, version: r.version };
+}, function (err) {
+return { url: url, err: (err && err.message) || '网络失败' };
+});
+});
+return Promise.all(jobs).then(function (list) {
+var okList = list.filter(function (x) { return x && x.text; });
+if (!okList.length) {
+var e = new Error('已试 ' + list.length + ' 个地址都失败：'
++ list.map(function (t) { return (t && t.err) || '网络失败'; }).join('；'));
+e.tried = list;
+throw e;
+}
+var best = okList[0];
+for (var i = 1; i < okList.length; i++) {
+if (cmpVersion(okList[i].version, best.version) > 0) best = okList[i];
+}
+remember('word', best.url);
+return { text: best.text, url: best.url, version: best.version, tried: okList.length };
 });
 }
 function resolveUrls(kind, custom) {
@@ -171,6 +208,7 @@ return out;
 function fetchAny(kind, custom) {
 var urls = resolveUrls(kind, custom);
 if (!urls.length) return Promise.reject(new Error('没有可用的云端地址'));
+if (kind === 'word' && !isCloudUrl(custom) && urls.length > 1) return fetchWordFreshest(urls);
 var tried = [];
 var i = 0;
 function attempt() {
@@ -181,9 +219,9 @@ e.tried = tried;
 throw e;
 }
 var url = urls[i++];
-return fetchOne(url, kind).then(function (text) {
+return fetchOne(url, kind).then(function (r) {
 remember(kind, url);
-return { text: text, url: url, tried: tried.length + 1 };
+return { text: r.text, url: url, version: r.version, tried: tried.length + 1 };
 }, function (err) {
 tried.push({ url: url, err: (err && err.message) || '网络失败' });
 return attempt();
