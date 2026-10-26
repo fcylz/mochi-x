@@ -36,6 +36,7 @@ Node 层必跑（链接识别、三份云端数据取回与展开、上次地址
 |---|---|---|
 | `kaomoji` 颜文字 | **颜文字** tab | 有独立分类 |
 | `emoji` emoji | **emoji** tab | 有独立分类 |
+| `poke` 拍一拍 | **拍一拍** tab | 载体分类，抽中拼成「TA 拍了拍你 …」，只适合短句 |
 | `daily` 日常 / `connect` 连接 / `address` 称呼 / `quotes` 官方语录 / `sweet` 情话 | **主字卡** tab | 都是文本类，各成一组建在同一个 tab 下 |
 | `fish` 摸鱼 / `eat` 吃饭 / `period` 经期 / `water` 喝水 / `garden` 花园 / `sync` 同频 / `reach` 伸手 / `cjian` 此间 / `room` 房间 / `piggy` 存钱罐 / `drift` 漂流瓶 / `interact` 互动回应 / `music` 音乐 | **同名功能池** | 1.3.0 新增：写进各功能页自己的抽卡池，**不进聊天通用回复** |
 
@@ -85,6 +86,9 @@ cy-chat 的字卡在 2026-10 从「一个 `customReplies` 装 1521 条」拆成�
 > 判据改成了 `legacyWordKeys` 白名单——继续用「`wordMap` 里没配的 key」判断会永远判成旧结构，
 > 旧组就再也清不掉了。1.3.0 又把 13 个功能分类配进去，同理不影响这条判据（`legacyWordKeys`
 > 始终只认 `customReplies` / `pokes` / `statuses` 三条）。
+
+> 1.4.0 的 `poke` 拍一拍**不是**旧结构的 `pokes`：旧组叫「云端·戳一戳」、属于历史迁移清理对象，
+> 新组叫「云端·拍一拍」。两条映射同时存在，各自往自己那个组里写，不会互相覆盖，也不会被误清。
 
 ## 云端仓库
 

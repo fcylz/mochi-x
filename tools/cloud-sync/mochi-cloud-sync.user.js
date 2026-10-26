@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Mochi 云端字卡 / 表情包 / 曲库 自动同步
 // @namespace    mochi-cloud-sync
-// @version      1.3.0
+// @version      1.4.0
 // @description  打开页面即自动把你的云端字卡库、表情包库、曲库合并进本机 mochi 字卡。不改动站点任何代码，仅在浏览器里以用户脚本运行。
 // @match        *://*/*
 // @run-at       document-start
@@ -52,6 +52,8 @@
     // 另外五个（日常/连接/称呼/官方语录/情话）是文本类，统一进主字卡。
     // 2026-10 追加的 13 个功能分类（cy-chat v2.1.0）落到同名功能池：key 即分类，
     // 与站点 chatcard.js 的 CC_FUNC_KEYS / card-audit.js 的 CC_LABEL 保持一致。
+    // 拍一拍（cy-chat v2.2.0）走载体分类 poke——注意它和旧结构时代的 `pokes: 云端·戳一戳`
+    // 不是同一个组：旧组是历史迁移的清理对象，新组名是「云端·拍一拍」，别合并。
     // 刻意不映射表情包/图片/语音：云端字卡是纯文本，写进媒体分类只会得到破图与坏语音。
     wordMap: {
       customReplies: { type: 'text', group: '云端·自定义回复' },
@@ -64,6 +66,7 @@
       sweet: { type: 'text', group: '云端·情话' },
       kaomoji: { type: 'kaomoji', group: '云端·颜文字' },
       emoji: { type: 'emoji', group: '云端·emoji' },
+      poke: { type: 'poke', group: '云端·拍一拍' },
       // —— 功能分类（各功能页专属池，不进聊天通用回复）——
       fish: { type: 'fish', group: '云端·摸鱼' },
       eat: { type: 'eat', group: '云端·吃饭' },

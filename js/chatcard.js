@@ -2950,6 +2950,7 @@ b.remove();
 const CLOUD_TYPE_BY_LABEL = {
 '颜文字': 'kaomoji',
 'emoji': 'emoji',
+'拍一拍': 'poke',
 '摸鱼': 'fish',
 '吃饭': 'eat',
 '经期': 'period',
