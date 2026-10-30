@@ -4,13 +4,18 @@
 var LAST_PREFIX = 'xy-home-v2:cloud-import-last:'; // 按用途分记，互不覆盖
 var MAX_MEME_BYTES = 1024 * 1024;                  // 单张表情体积上限，超限跳过
 var TRY_TIMEOUT = 8000;                            // 单个镜像的等待上限（超时即换下一个）
+var RAW_BASE = 'https://raw.githubusercontent.com/fcylz/cy-chat/main/';
+var LATEST_URL = RAW_BASE + 'latest.json';
+var LATEST_TIMEOUT = 3500;                         // 探针失败就算了，不拖慢正常拉取
 var DEFAULTS = {
 word: [
+'https://raw.githubusercontent.com/fcylz/cy-chat/main/Word/word.json',
 'https://gcore.jsdelivr.net/gh/fcylz/cy-chat@main/Word/word.json',
 'https://fastly.jsdelivr.net/gh/fcylz/cy-chat@main/Word/word.json',
 'https://cdn.jsdelivr.net/gh/fcylz/cy-chat@main/Word/word.json'
 ],
 meme: [
+'https://raw.githubusercontent.com/fcylz/cy-chat/main/Meme/meme.json',
 'https://gcore.jsdelivr.net/gh/fcylz/cy-chat@main/Meme/meme.json',
 'https://fastly.jsdelivr.net/gh/fcylz/cy-chat@main/Meme/meme.json',
 'https://cdn.jsdelivr.net/gh/fcylz/cy-chat@main/Meme/meme.json'
@@ -26,7 +31,12 @@ var IMG_HOST = 'gcore.jsdelivr.net';
 function toImgHost(u) {
 try {
 var p = new URL(u);
-if (/\.jsdelivr\.net$/i.test(p.hostname) && p.hostname.toLowerCase() !== IMG_HOST) {
+var h = p.hostname.toLowerCase();
+if (h === 'raw.githubusercontent.com') {
+var m = p.pathname.match(/^\/([^/]+)\/([^/]+)\/([^/]+)\/(.+)$/);
+if (m) return 'https://' + IMG_HOST + '/gh/' + m[1] + '/' + m[2] + '@' + m[3] + '/' + m[4];
+}
+if (/\.jsdelivr\.net$/i.test(h) && h !== IMG_HOST) {
 p.hostname = IMG_HOST;
 return p.href;
 }
@@ -136,6 +146,14 @@ remember(kind, url);
 return text;
 });
 }
+function itemCount(data) {
+var cats = (data && data.categories) || {};
+var n = 0;
+Object.keys(cats).forEach(function (k) {
+n += ((cats[k] && cats[k].items) || []).length;
+});
+return n;
+}
 function fetchOne(url, kind, timeoutMs) {
 var ms = timeoutMs || TRY_TIMEOUT;
 var ac = (typeof AbortController === 'function') ? new AbortController() : null;
@@ -148,7 +166,7 @@ return r.json();
 }).then(function (data) {
 var text = expand(kind, data, url);
 if (!text) throw new Error('云端数据里没有可导入的内容');
-return { text: text, version: String((data && data.version) || '') };
+return { text: text, version: String((data && data.version) || ''), items: itemCount(data) };
 }).then(function (r) {
 if (timer) clearTimeout(timer);
 return r;
@@ -156,6 +174,23 @@ return r;
 if (timer) clearTimeout(timer);
 var aborted = !!(e && e.name === 'AbortError');
 throw new Error(aborted ? ('超时（>' + (ms / 1000) + 's）') : ((e && e.message) || '网络失败'));
+});
+}
+function fetchLatest(timeoutMs) {
+var ms = timeoutMs || LATEST_TIMEOUT;
+var ac = (typeof AbortController === 'function') ? new AbortController() : null;
+var timer = null;
+var opts = { cache: 'no-store' };
+if (ac) { opts.signal = ac.signal; timer = setTimeout(function () { try { ac.abort(); } catch (e) {} }, ms); }
+return fetch(LATEST_URL + '?t=' + Date.now(), opts).then(function (r) {
+if (!r.ok) throw new Error('HTTP ' + r.status);
+return r.json();
+}).then(function (d) {
+if (timer) clearTimeout(timer);
+return d && typeof d === 'object' ? d : null;
+}, function () {
+if (timer) clearTimeout(timer);
+return null;
 });
 }
 function cmpVersion(a, b) {
@@ -169,16 +204,19 @@ if (x !== y) return x - y;
 }
 return 0;
 }
-var WORD_MIRROR_TIMEOUT = 4000;
-function fetchWordFreshest(urls) {
+var MIRROR_TIMEOUT = 4000;
+function fetchFreshest(kind, urls) {
+var latestP = fetchLatest();
 var jobs = urls.map(function (url) {
-return fetchOne(url, 'word', WORD_MIRROR_TIMEOUT).then(function (r) {
-return { url: url, text: r.text, version: r.version };
+return fetchOne(url, kind, MIRROR_TIMEOUT).then(function (r) {
+return { url: url, text: r.text, version: r.version, items: r.items };
 }, function (err) {
 return { url: url, err: (err && err.message) || '网络失败' };
 });
 });
-return Promise.all(jobs).then(function (list) {
+return Promise.all([latestP, Promise.all(jobs)]).then(function (res) {
+var latest = res[0];
+var list = res[1];
 var okList = list.filter(function (x) { return x && x.text; });
 if (!okList.length) {
 var e = new Error('已试 ' + list.length + ' 个地址都失败：'
@@ -186,12 +224,17 @@ var e = new Error('已试 ' + list.length + ' 个地址都失败：'
 e.tried = list;
 throw e;
 }
-var best = okList[0];
-for (var i = 1; i < okList.length; i++) {
-if (cmpVersion(okList[i].version, best.version) > 0) best = okList[i];
+var want = latest && latest[kind];
+var wantItems = (want && Number(want.items)) || 0;
+var exact = wantItems ? okList.filter(function (x) { return x.items === wantItems; }) : [];
+var pool = exact.length ? exact : okList;
+var best = pool[0];
+for (var i = 1; i < pool.length; i++) {
+var c = cmpVersion(pool[i].version, best.version);
+if (c > 0 || (c === 0 && pool[i].items > best.items)) best = pool[i];
 }
-remember('word', best.url);
-return { text: best.text, url: best.url, version: best.version, tried: okList.length };
+remember(kind, best.url);
+return { text: best.text, url: best.url, version: best.version, items: best.items, tried: okList.length };
 });
 }
 function resolveUrls(kind, custom) {
@@ -208,7 +251,7 @@ return out;
 function fetchAny(kind, custom) {
 var urls = resolveUrls(kind, custom);
 if (!urls.length) return Promise.reject(new Error('没有可用的云端地址'));
-if (kind === 'word' && !isCloudUrl(custom) && urls.length > 1) return fetchWordFreshest(urls);
+if ((kind === 'word' || kind === 'meme') && !isCloudUrl(custom) && urls.length > 1) return fetchFreshest(kind, urls);
 var tried = [];
 var i = 0;
 function attempt() {
@@ -221,7 +264,7 @@ throw e;
 var url = urls[i++];
 return fetchOne(url, kind).then(function (r) {
 remember(kind, url);
-return { text: r.text, url: url, version: r.version, tried: tried.length + 1 };
+return { text: r.text, url: url, version: r.version, items: r.items, tried: tried.length + 1 };
 }, function (err) {
 tried.push({ url: url, err: (err && err.message) || '网络失败' });
 return attempt();
@@ -237,7 +280,8 @@ fetch: fetchCloud,
 expand: expand,
 defaults: DEFAULTS,
 resolveUrls: resolveUrls,
-fetchAny: fetchAny
+fetchAny: fetchAny,
+latest: fetchLatest
 };
 /* ==========================================================================
 * 就地一键拉取按钮（字卡库「云端字卡」/「云端表情」、音乐页「云端曲库」）
