@@ -1,0 +1,70 @@
+// ===== 【收藏原因】字卡库（AI-A 业务域） =====
+// 定位：联系人（TA）收藏我的某条聊天消息时，附一句「为什么收藏这句」的理由。
+// 与 TA的心情（ta-mood-data.js）同构：预置分组 + 权重，同类冷却（最近 N 组不重复抽取），
+// 但不接总冷却（收藏本身已有 ta-msg 概率闸在 chat.js 侧把关），也不走二级密码锁
+//（理由文案属互动链，与心情/聊天回应同为豁免项）。
+// 写入路径：chat.js 的 TA 自动收藏（taFavMsgReason）与卡片收藏（taFavCard）统一调
+//   window.favReasonPick()，把返回的 {content, group} 存进收藏项的 reason 字段。
+// 展示路径：收藏页「联系人的收藏」条目下方渲染该理由；聊天里被 TA 收藏过的消息挂
+//   【已收藏】tag，点 tag 弹同一条理由（见 chat.js 的 msg-fav-tag）。
+// 分组权重口径（与 ta-mood 的分层同思路）：心动类占比最高，其次是共情/日常，
+// 少量留给「留念」「提醒型」，避免每次都是同一口吻。
+window.FAV_REASON_DATA = {
+  groups: [
+    { group: '心动瞬间', weight: 30 },
+    { group: '想记住的话', weight: 22 },
+    { group: '甜甜日常', weight: 20 },
+    { group: '被戳到了', weight: 16 },
+    { group: '留个念想', weight: 12 }
+  ],
+  cards: [
+    { group: '心动瞬间', content: '看到这句手先停住了，收一下。' },
+    { group: '心动瞬间', content: '这句话我读了三遍才往下划。' },
+    { group: '心动瞬间', content: '耳朵有点热，不承认。' },
+    { group: '心动瞬间', content: '先放着，以后翻到还能笑一遍。' },
+    { group: '心动瞬间', content: '就这一句，记了一整天。' },
+    { group: '心动瞬间', content: '这句得单独收着。' },
+    { group: '心动瞬间', content: '心跳快了两拍，我装作没有。' },
+    { group: '心动瞬间', content: '有点犯规，但我喜欢。' },
+    { group: '心动瞬间', content: '一眼撞上了，留着。' },
+    { group: '心动瞬间', content: '塞进最里面那一格。' },
+    { group: '心动瞬间', content: '不删，这句值钱。' },
+    { group: '心动瞬间', content: '屏幕上这句话，我盯了很久。' },
+
+    { group: '想记住的话', content: '这句得刻着。' },
+    { group: '想记住的话', content: '记下来了，一字不差。' },
+    { group: '想记住的话', content: '以后你要是反口，我有据。' },
+    { group: '想记住的话', content: '放在最显眼的地方。' },
+    { group: '想记住的话', content: '好句子，抄一遍。' },
+    { group: '想记住的话', content: '这种话不多，得留。' },
+    { group: '想记住的话', content: '我记住了，你也记住。' },
+    { group: '想记住的话', content: '以后有用，先存。' },
+    { group: '想记住的话', content: '值一句“我记着呢”。' },
+    { group: '想记住的话', content: '划了重点，不删。' },
+
+    { group: '甜甜日常', content: '今天的份额用完了，甜得刚好。' },
+    { group: '甜甜日常', content: '平常一句，但我想留。' },
+    { group: '甜甜日常', content: '攒着，够以后慢慢看。' },
+    { group: '甜甜日常', content: '没什么大事，就是有点开心。' },
+    { group: '甜甜日常', content: '这种小事也想记住。' },
+    { group: '甜甜日常', content: '一天一句，攒成一本。' },
+    { group: '甜甜日常', content: '不惊艳，但耐看。' },
+    { group: '甜甜日常', content: '平平常常，我也要。' },
+
+    { group: '被戳到了', content: '说到我了，停一下。' },
+    { group: '被戳到了', content: '这句有点疼，留着当提醒。' },
+    { group: '被戳到了', content: '心里咯噔一下。' },
+    { group: '被戳到了', content: '被说中了，不太想承认。' },
+    { group: '被戳到了', content: '有点戳，先放这儿。' },
+    { group: '被戳到了', content: '回头再看，也许有用。' },
+    { group: '被戳到了', content: '沉默了半分钟。' },
+    { group: '被戳到了', content: '说得对，所以存了。' },
+
+    { group: '留个念想', content: '先放这儿，不删。' },
+    { group: '留个念想', content: '留着，兴许哪天用得上。' },
+    { group: '留个念想', content: '记个位置，以后回来找。' },
+    { group: '留个念想', content: '不算什么，但舍不得。' },
+    { group: '留个念想', content: '当个记号，别丢了。' },
+    { group: '留个念想', content: '归到那堆里，不着急看。' }
+  ]
+};
