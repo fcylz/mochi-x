@@ -113,7 +113,7 @@ function minifyCss(code) {
 
 // ===== 按顺序拼接样式 / 脚本（顺序即生效顺序） =====
 const cssFiles = ['base.css', 'home.css', 'chat-main.css', 'chat-pages.css', 'market.css', 'group-chat.css', 'setting.css', 'tabbar.css', 'dark.css', 'garden.css', 'memo.css', 'memo-arc.css', 'room.css', 'drift-bottle.css', 'applock.css', 'feature-data.css', 'display-tune.css', 'entry-quiz.css', 'update-remind.css'];
-const jsFiles = ['device.js', 'idb.js', 'contacts.js', 'applock.js', 'card-lock.js', 'dcp-master.js', 'media-pool.js','storage-slim.js', 'perf-check.js', 'energy-check.js', 'flash-check.js', 'img-compress.js', 'img-ingest.js', 'clock.js', 'entry-quiz.js', 'tabs.js', 'desktop-slider.js', 'quote-cards.js', 'personalize.js', 'chat.js', 'group-chat.js', 'chatcard.js', 'cloud-import.js', 'chat-settings.js', 'reply-settings.js', 'fav-settings.js', 'default-cards-data.js', 'dict-ext-data.js', 'default-cards.js', 'quote-spell.js', 'dream-free.js', 'mood-followup-data.js', 'mood-reply-cards.js', 'ta-mood-data.js', 'ta-mood.js', 'fav-reason-data.js', 'fav-reason.js', 'music-player.js', 'calendar.js', 'divination.js', 'avatar-lib.js', 'ta-ask.js', 'ck-question.js', 'incoming-requests.js', 'ta-invite.js', 'bg-keep.js', 'records.js', 'call.js', 'mail.js', 'feed.js', 'loc-lib.js', 'p2-features.js', 'gift-shop.js', 'memo-app.js', 'memo-arc.js', 'my-arc.js', 'period.js', 'accounting.js', 'garden.js', 'room.js', 'drift-bottle.js', 'decision.js', 'group-decision.js', 'pong.js', 'snake-game.js', 'breakout.js', 'connect-four.js', 'coop-mine.js', 'fishing.js', 'memory-game.js', 'gomoku.js', 'linkup.js', 'match3.js', 'auction.js', 'arcade.js', 'mood-diary.js', 'sfx.js', 'fullscreen.js', 'data-backup.js', 'feature-data.js', 'pwa.js', 'update-remind.js', 'cjian.js', 'feature-hub.js', 'settings-help.js', 'onboarding.js', 'page-coach.js', 'card-audit.js', 'storage-guide.js', 'mobile-adapt.js'];
+const jsFiles = ['device.js', 'idb.js', 'contacts.js', 'applock.js', 'card-lock.js', 'dcp-master.js', 'media-pool.js','storage-slim.js', 'perf-check.js', 'energy-check.js', 'flash-check.js', 'img-compress.js', 'img-ingest.js', 'clock.js', 'entry-quiz.js', 'tabs.js', 'desktop-slider.js', 'quote-cards.js', 'personalize.js', 'chat.js', 'group-chat.js', 'chatcard.js', 'cloud-import.js', 'chat-settings.js', 'reply-settings.js', 'fav-settings.js', 'default-cards-data.js', 'dict-ext-data.js', 'default-cards.js', 'quote-spell.js', 'dream-free.js', 'mood-followup-data.js', 'mood-reply-cards.js', 'ta-mood-data.js', 'ta-mood.js', 'fav-reason-data.js', 'fav-reason.js', 'music-player.js', 'calendar.js', 'divination.js', 'avatar-lib.js', 'ta-ask.js', 'ck-question.js', 'incoming-requests.js', 'ta-invite.js', 'bg-keep.js', 'records.js', 'call.js', 'mail.js', 'feed.js', 'loc-lib.js', 'p2-features.js', 'gift-shop.js', 'memo-app.js', 'memo-arc.js', 'my-arc.js', 'period.js', 'accounting.js', 'garden.js', 'room.js', 'drift-bottle.js', 'decision.js', 'group-decision.js', 'pong.js', 'snake-game.js', 'breakout.js', 'connect-four.js', 'coop-mine.js', 'fishing.js', 'memory-game.js', 'gomoku.js', 'linkup.js', 'match3.js', 'auction.js', 'arcade.js', 'mood-diary.js', 'sfx.js', 'fullscreen.js', 'data-backup.js', 'feature-data.js', 'pwa.js', 'update-remind.js', 'cjian.js', 'feature-hub.js', 'settings-help.js', 'onboarding.js', 'page-coach.js', 'card-audit.js', 'storage-guide.js', 'mobile-adapt.js', 'hakozume-loader.js'];
 
 // ===== PERF-PLAN 阶段 1：JS 外置化（2026-09-18）=====
 // 首开「3.8MB 内联 JS 主线程整段解析执行」是 iOS/中低端安卓卡顿的结构性大头
@@ -351,6 +351,28 @@ rmSync(jsDir, { recursive: true, force: true });
 mkdirSync(jsDir, { recursive: true });
 extWrapped.forEach((code, i) => writeFileSync(join(jsDir, extFiles[i]), code));
 console.log('已外置 ' + extFiles.length + ' 个 JS → js/（' + extWrapped.reduce((n, c) => n + Buffer.byteLength(c, 'utf8'), 0) + ' 字节）；core 内联 ' + coreFiles.length + ' 个文件');
+
+// ===== 动态按需加载模块（hakozume-simulator 装箱模拟器）=====
+// 不进 jsFiles/cssFiles，不生成 <script defer> 标签，首次 hakozumeApi.open() 时由 loader 动态注入。
+// 设计意图：首屏零开销（不加载 1.3MB three.js + 引擎 + 面板），规避 iOS/WebKit 首开卡顿。
+const DYNAMIC_MODULES = [
+  { src: 'hakozume-engine.js', dest: join(jsDir, 'hakozume-engine.js'), minify: 'js' },
+  { src: 'hakozume-panel.js',  dest: join(jsDir, 'hakozume-panel.js'),  minify: 'js' },
+];
+const dynamicBytes = [];
+DYNAMIC_MODULES.forEach(m => {
+  let code = read(join('js', m.src));
+  code = m.minify === 'js' ? minifyJs(code) : minifyCss(code);
+  writeFileSync(m.dest, code);
+  dynamicBytes.push(Buffer.byteLength(code, 'utf8'));
+});
+// 动态 CSS：hakozume.css（独立资源，不内联进 index.html 的 <style>）
+const cssDir = join(root, 'css');
+mkdirSync(cssDir, { recursive: true });
+const hzCssCode = minifyCss(read(join('css', 'hakozume.css')));
+writeFileSync(join(cssDir, 'hakozume.css'), hzCssCode);
+console.log('已生成动态模块：' + DYNAMIC_MODULES.map(m => m.src).join(' + ') + ' + hakozume.css（共 ' + (dynamicBytes.reduce((a,b)=>a+b,0) + Buffer.byteLength(hzCssCode,'utf8')) + ' 字节；three.min.js 在 vendor/）');
+
 const out = join(root, 'index.html');
 writeFileSync(out, html);
 console.log('已生成 index.html（' + html.length + ' 字节，' + (html.split('\n').length) + ' 行）');
