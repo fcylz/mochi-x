@@ -536,8 +536,6 @@ const hB = parseFloat(document.getElementById('heightB').value) || 171.5;
 const text = `${nB}（${hB.toFixed(1)}cm）和 ${nA}（${hA.toFixed(1)}cm）被装进了箱子里！\n#装箱模拟器\n`;
 window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(window.location.href)}`, '_blank');
 }
-init();
-</script>
 /* 设置持久化 v2：本页控件刷新保留，名字・性别・身高・颜色跨模式通用 */
 (function () {
 var PAGE_KEY = 'simSettings:' + location.pathname;
