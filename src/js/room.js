@@ -639,7 +639,8 @@
       { label: '靠近', value: 'near' },
       { label: '坐到旁边', value: 'beside' },
       { label: '看看TA', value: 'look' },
-      { label: '打招呼', value: 'greet' }
+      { label: '打招呼', value: 'greet' },
+      { label: '📦 和TA玩装箱', value: 'hakozume' }
     ];
     window.openModal(d.ta.faint ? '……这里好像有人' : pn(), '', function (v) {
       if (!v) return;
@@ -657,6 +658,18 @@
       } else if (v === 'greet') {
         ta.faint = false;
         bubble(sayLine('打招呼', 'greet')); renderStatus(); gainPts(1, 'ta'); vib(12);
+      } else if (v === 'hakozume') {
+        // 📦 装箱模拟器：TA 主动提议的弹窗提醒
+        try {
+          bubble(sayLine('提议装箱', 'proposeHako', true) || '想和你玩个有意思的互动~');
+          setTimeout(function () {
+            if (window.hakozumeApi) {
+              hakozumeApi.open(window.readTaBodyProfile ? readTaBodyProfile() : null);
+            } else {
+              openModal('📦 装箱模拟器', '<p>模块正在加载，稍等刷新后就能玩啦~</p>', function(){}, { noInput: true });
+            }
+          }, 800);
+        } catch (e) { console.error(e); }
       }
       save();
     }, { noInput: true, pills: pills });
@@ -980,6 +993,44 @@
       if (!page.hidden) applyBrightness();
     });
     setInterval(tick, 1000);
+
+    // ===== 📦 装箱模拟器：TA 主动提议概率检查 =====
+    // 每 15 分钟掷一次，15% 概率触发 TA 主动提议玩装箱。冷却 30 分钟防刷屏。
+    let _lastHakoPropose = 0;
+    const HAKO_PROPOSE_CD = 30 * 60 * 1000;  // 30 分钟冷却
+    const HAKO_PROPOSE_INTERVAL = 15 * 60 * 1000;  // 每 15 分钟检查
+    setInterval(function () {
+      if (page.hidden || document.hidden) return;
+      if (typeof window.hakozumeApi === 'undefined') return;  // loader 还没加载
+      const now = Date.now();
+      if (now - _lastHakoPropose < HAKO_PROPOSE_CD) return;
+      if (Math.random() > 0.15) return;  // 15% 概率
+      // modal busy 检查：避免和其他弹窗打架
+      if (typeof mochiOverlayBusy === 'function' && mochiOverlayBusy()) return;
+      _lastHakoPropose = now;
+      try {
+        bubble(sayLine('提议装箱', 'proposeHako', true) || '想和你玩个有意思的互动~');
+        setTimeout(function () {
+          if (page.hidden || document.hidden) return;
+          if (typeof mochiOverlayBusy === 'function' && mochiOverlayBusy()) return;
+          openModal('📦 TA 提议玩装箱',
+            '<p>TA 想和你一起玩 <strong>体型差装箱模拟器</strong>——3D 场景里你们可以摆出各种互动姿势~</p>' +
+            '<p style="font-size:11px;color:#888;margin-top:8px;">（随机姿势，可反复重抽）</p>',
+            function (v) {
+              if (v === 'yes') {
+                try { hakozumeApi.open(window.readTaBodyProfile ? readTaBodyProfile() : null); } catch (e) {}
+              } else if (v === 'later') {
+                toast('TA：下次再玩哦~');
+              }
+            },
+            { noInput: true, pills: [
+              { label: '好呀，玩！', value: 'yes' },
+              { label: '下次吧', value: 'later' }
+            ]}
+          );
+        }, 1200);
+      } catch (e) { console.error(e); }
+    }, HAKO_PROPOSE_INTERVAL);
     document.addEventListener('visibilitychange', function () {
       if (!document.hidden && !page.hidden) { renderScene(); renderStatus(); }
     });

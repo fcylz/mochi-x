@@ -253,7 +253,8 @@
       { n: '音乐 · 批量管理', d: '进批量管理模式：勾选后一次删多首 / 移进歌单', k: '音乐 批量 管理 删除 多选 整理', go: ['.app[data-app="music"]', '#music-batch-manage'] },
       { n: '音乐设置', d: '音乐页右上设置：悬浮小窗、一起听歌、自动播放等开关都在这里', k: '音乐 设置 悬浮 小窗 一起听 开关', go: ['.app[data-app="music"]', '#music-set'] },
       { n: '占卜 · 牌面与牌阵', d: '切换塔罗/雷诺曼牌面风格与牌阵，再抽牌', k: '占卜 牌面 牌背 牌阵 塔罗 雷诺曼 切换', go: ['.app[data-app="divination"]', '#div-faces-btn'] },
-      { n: '收藏 · 管理', d: '进收藏管理模式：勾选后批量取消收藏', k: '收藏 管理 批量 删除 取消收藏 多选', go: ['.app[data-app="note"]', '#fav-manage-btn'] }
+      { n: '收藏 · 管理', d: '进收藏管理模式：勾选后批量取消收藏', k: '收藏 管理 批量 删除 取消收藏 多选', go: ['.app[data-app="note"]', '#fav-manage-btn'] },
+      { n: '📦 和 TA 玩装箱（体型差模拟器）', d: '把你和 TA 的身高/颜色参数送进装箱模拟器，3D 互动——15+ 姿势族随机求解、可切换姿势、深色模式 Canvas 跟随', k: '装箱 模拟器 体型差 3D hakozume 装箱模拟器 姿势', action: function() { try { if (window.hakozumeApi) hakozumeApi.open(window.readTaBodyProfile ? readTaBodyProfile() : null); else toast('装箱模块还没加载，稍等刷新'); } catch (e) { console.error(e); } } }
     ] },
     { g: '小游戏', items: [
       { n: '猜拳', d: '和 TA 猜拳，累计战绩', k: '猜拳 石头剪刀布 游戏', go: ['.app[data-app="chat"]', '#more-rps'] },
@@ -761,6 +762,11 @@
     clearTimeout(t._timer); t._timer = setTimeout(() => { t.className = 'cc-toast'; }, 2400);
   }
   function jump(it) {
+    // 自定义 action（如 hakozumeApi.open 这种没有 DOM 入口的动作）
+    if (typeof it.action === 'function') {
+      try { it.action(); bumpFreq(it); bumpSeen([{ g: it.g, n: it.n }]); } catch (e) { console.error(e); toast('「' + it.n + '」打开失败，请刷新后重试'); }
+      return;
+    }
     if (it.go && it.go.length) {
       try {
         const fireSel = function (sel2) { const el2 = document.querySelector(sel2); if (el2 && typeof el2.click === 'function') { el2.click(); return true; } return false; };
