@@ -1149,15 +1149,17 @@ function* solveGen(o){
 
 
 // ===== 暴露到 window =====
+// 注意：只导出原始 HTML 里的真正顶层变量/常量/函数。
+// box 是 solveGen() 内部的局部变量（L1443 let box;），不能导出。
 const _exported = {
   // 变量
   scene, camera, renderer, clock,
   personA, personB, walkGroup, boxGroup,
   currentView, carrySide,
-  currentBox, box, lidOpen,
-  solving, solvingPromise, diceAuto, variantSeed, rerollPending,
+  currentBox,
+  solving, diceAuto, variantSeed, rerollPending,
   lastResult, lastKey, pendingKey,
-  lastScan, scanRun, scanParams, scanDoneKey, solvingLock, currentBoxParams,
+  lastScan, scanRun, scanParams, scanDoneKey,
   // 常量
   PI, GN, ARM_NEUTRAL, DEF_W, G_SIG,
   FAMILIES, STAND_FAMS, SYM_FAMS,
@@ -1179,8 +1181,5 @@ const _exported = {
   anneal, makeCtx, famRoleSeeds, solveGen,
 };
 Object.assign(window, _exported);
-
-// 同时暴露 hzCore（方便 panel 引用）
-window.hzCore = _exported;
 
 })();

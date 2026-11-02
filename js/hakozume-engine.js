@@ -1031,10 +1031,10 @@ const _exported = {
 scene, camera, renderer, clock,
 personA, personB, walkGroup, boxGroup,
 currentView, carrySide,
-currentBox, box, lidOpen,
-solving, solvingPromise, diceAuto, variantSeed, rerollPending,
+currentBox,
+solving, diceAuto, variantSeed, rerollPending,
 lastResult, lastKey, pendingKey,
-lastScan, scanRun, scanParams, scanDoneKey, solvingLock, currentBoxParams,
+lastScan, scanRun, scanParams, scanDoneKey,
 PI, GN, ARM_NEUTRAL, DEF_W, G_SIG,
 FAMILIES, STAND_FAMS, SYM_FAMS,
 ANA_FAMS, ALLFOURS_FAMS, ANA_DIMS,
@@ -1054,5 +1054,4 @@ clampGene, settleDown, armCost, armComfort, solveArms,
 anneal, makeCtx, famRoleSeeds, solveGen,
 };
 Object.assign(window, _exported);
-window.hzCore = _exported;
 })();
