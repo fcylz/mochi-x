@@ -114,6 +114,38 @@ function _ensureDOM() {
 
 _ensureDOM();
 
+// 姿势栏初始只有「自动推荐」，其余选项此前只在 TA 主动切换时按需补；
+// 用户手动打开下拉就只剩一两项，无法滚动/选择。这里一次性补齐全部姿势族
+// （箱子 14 + 清洁柜 3，option 带 dataset.kind），再由 refreshPoseOptions
+// 按当前箱子类型和身高可行性显示/隐藏。
+function hzFillPoseOptions() {
+  const sel = document.getElementById('poseFamily');
+  if (!sel) return;
+  const groups = [
+    { kind: 'box', fams: window.FAMILIES || [] },
+    { kind: 'locker', fams: window.STAND_FAMS || [] }
+  ];
+  groups.forEach(function (g) {
+    g.fams.forEach(function (fam) {
+      if (!fam) return;
+      let opt = null;
+      for (let i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].value === fam) { opt = sel.options[i]; break; }
+      }
+      if (!opt) {
+        opt = document.createElement('option');
+        opt.value = fam;
+        sel.appendChild(opt);
+      }
+      opt.dataset.kind = g.kind;
+      opt.textContent = (window.FAMILY_NAMES && window.FAMILY_NAMES[fam]) || fam;
+    });
+  });
+  refreshPoseOptions(window.lastScan || null);
+}
+
+hzFillPoseOptions();
+
 // ===== 包装 togglePanel (原始代码里定义) =====
 function togglePanel() {
   const panel = document.getElementById('ui-panel');
@@ -190,14 +222,41 @@ function saveTaProfile() {
 }
 
 // ===== TA 台词与自主行为 =====
-// TA = A 组。每类动作预置 5 条台词随机挑一句；面板打开期间按 40–180 秒的
-// 随机间隔执行一次自主动作，动作类型按权重抽取（姿势/箱子各 3，视角/交换/身高各 2）。
+// TA = 男角色（默认 B 组；A 组为男性时取 A）。台词统一以 TA 的名字开口，
+// 且按“男性角色”而非 A/B 组号定位，所以 A/B 交换后仍由那位男角色说话。
+// 面板打开期间按 40–180 秒的随机间隔执行一次自主动作，动作类型按权重抽取
+// （姿势/箱子各 3，视角/交换/身高各 2）。
 const HZ_TA_LINES = {
-  pose: ['TA想和你做这个动作', '我喜欢这个姿势', '试试这个吧？', '这样抱会更舒服吧', '换这个，感觉怎么样？'],
-  box: ['换个箱子玩玩', '这个柜子更挤一点', '箱子这样也挺好', '我喜欢这种空间', '让我挑个新箱子'],
   view: ['从这个角度看更清楚', '让我换个视角看看你', '这样看你好可爱', '转到这边来', '我想看看你的表情'],
   swap: ['这次换我抱你', '换我在上边试试', '我们换个位置吧', '让我在下面一次', '换个位置更好玩'],
   height: ['我今天好像长高了', '让我矮一点，靠你更近', '这个身高差刚好', '换个身高试试', '我喜欢仰视你的感觉']
+};
+
+// 姿势台词：按实际切到的姿势族取句，每族 10 条
+const HZ_POSE_LINES = {
+  between: ['靠在我的两膝之间别乱动', '这个位置刚好能抱住你', '缩在我怀里的样子我喜欢', '夹在中间，暖和吧', '背靠着我，放松点', '我喜欢你这样偎着我', '我想这样抱着你很久了', '靠我这么近，你会喜欢吗', '贴得这么紧，有点过火了吧', '别动，就这样待一会'],
+  betweenF: ['面对面坐进来，让我看看你', '眼睛离我这么近，别躲', '这样抱着你正好', '腿收进来，靠着我', '面对面才看得清你的表情', '这样坐着，能看很久', '我想这样看着你很久了', '面对面这么近，你喜欢吗', '一直盯着你看，有点过分吧', '眨什么眼，我都没躲'],
+  laplap: ['坐我腿上，我接着你', '重量交给我', '这个角度刚好靠在我肩头', '坐在我腿上别乱动', '我喜欢你坐在腿上的感觉', '往后靠，我撑着你', '我想让你坐上来很久了', '这样坐在我腿上，喜欢吗', '贴这么紧，有点过火了吧', '别乱动，小心滑下去'],
+  laplapF: ['转过来，坐我腿上', '面对面，把手给我', '这样能抱得更紧', '坐稳了，我扶着你', '离我这么近，还习惯吗', '看着我的眼睛', '我想这样抱着你很久了', '面对面坐我腿上，你喜欢吗', '离这么近，是不是有点过火', '手放我肩上，别拘束'],
+  facingKnees: ['盘腿坐下，看着我', '就这个距离，别走', '面对面坐着，能聊很久', '膝盖碰膝盖，挺好', '我喜欢和你这样对着坐', '腿挨着，别挪开', '我想这样和你对着坐很久了', '这样的距离，你会喜欢吗', '靠这么近，有点过火了吧', '膝盖别挪，就这样说话'],
+  facingWrap: ['用腿圈住你，别跑', '夹紧一点，更稳', '这样你怎么也躲不开', '腿绕过来，贴着我', '被我圈住了吧', '松开也没用', '我想这样把你圈住很久了', '被我夹着，你会喜欢吗', '圈这么紧，有点过火', '说好了，别想跑'],
+  cradle: ['横抱起来，你很轻', '别怕，我托着你', '这样抱着你走也行', '躺在我怀里别动', '我喜欢横抱着你的感觉', '头靠过来一点', '我想这样抱你很久了', '被横抱着，你喜欢吗', '这样抱是不是有点过火', '别乱动，我抱得稳'],
+  side: ['并排坐着，肩膀靠着', '往我这边靠一点', '一起坐着也挺好', '手给我，坐一会', '并肩坐，慢慢聊', '就这样安静地坐着', '我想这样陪你坐很久了', '肩膀靠着，你会喜欢吗', '靠这么近，有点过火了吧', '不用说话，就这样坐着'],
+  lying: ['躺下来，我陪你', '侧过身，靠着我', '这样躺着最放松', '闭上眼，我在这', '躺着的你特别安静', '别起来，就这样躺', '我想这样陪你躺很久了', '这样躺在我旁边，喜欢吗', '贴这么近，有点过火', '别起来，再躺一会'],
+  overAllFours: ['我撑在你上面，别乱动', '这个角度，你藏不住', '俯身下来，靠得更近', '我压着你呢', '这样抱着你，很稳', '抬头，看着我', '我想这样撑着你很久了', '这个姿势，你会喜欢吗', '这样是不是有点过火', '抬头，别总低着头'],
+  overAllFoursWide: ['腿张开点，我撑得更稳', '跨过去，别夹着我', '这样空间大一点', '我俯下来，你放松', '腿分开，能贴得更紧', '再张开一点', '我想把腿分这么开很久了', '这样跨着，你习惯吗', '空间这么大，有点过火吧', '别夹腿，放松点'],
+  overAllFoursOff: ['脸侧过去，让我喘口气', '别和我叠在一起', '这样刚好，不挡视线', '偏开头，舒服点', '我撑着你，别回头', '就保持这个角度', '我想这样偏开头很久了', '这样侧着脸，你能接受吗', '不叠在一起，是不是有点过火', '就这样，谁也别躲'],
+  reverseStack: ['反着躺，头靠我这边', '背对着叠着，挺舒服', '这样躺着，谁也跑不了', '下面留给你，我在上面', '反着叠，空间刚好', '别翻身，就这样', '我想这样反着叠很久了', '背对背贴着，喜欢吗', '反着躺，有点过火了吧', '别翻身，就这样靠着'],
+  reverseStackWide: ['腿张开，叠得更服帖', '跨过来，别挤着', '这样躺着更宽敞', '反着叠，腿分开', '我压着你，别动', '再放开来一点', '我想这样反着叠很久了', '腿分开躺着，你受得了吗', '叠这么开，有点过火', '别并腿，就这样待着'],
+  standFace: ['站着面对面，抱着你', '抬头看我，别躲', '站着也能抱得很紧', '就这样站一会', '面对面站着，挺好', '手放我肩上', '我想这样站着抱你很久了', '面对面站着，你喜欢吗', '贴这么近，有点过火', '抬头，让我看看你'],
+  standBack: ['从后面抱住你', '背对着我，靠过来', '站着别动，我抱着', '同向站着，刚好贴一起', '这样抱最省力', '头靠在我肩上', '我想这样从后面抱你很久了', '被我抱着，你会喜欢吗', '从后面抱，有点过火吧', '靠过来，别回头'],
+  standSide: ['并排站着，肩碰肩', '往我这边靠', '站着并肩，也挺好', '手牵着，站一会', '并排站着说话', '就这样一起站着', '我想这样并肩站很久了', '肩碰着肩，你喜欢吗', '牵着手站，有点过火', '往我这边靠一点']
+};
+
+// 箱子台词：箱子是坐着/躺着，清洁柜只能站着，两类分开各 5 条
+const HZ_BOX_LINES = {
+  box: ['换回箱子吧，坐着更舒服', '箱子里躺着，刚好装下', '还是箱子好，能坐能躺', '这个箱子够我们躺着', '我喜欢箱子里窝着的感觉'],
+  locker: ['清洁柜里只能站着', '换到柜子，站着挤一挤', '站着也不错，空间更高', '柜子里站直了，贴着更好', '我喜欢这种站着被塞进去的感觉']
 };
 
 const HZ_TA_ACTIONS = [
@@ -211,8 +270,18 @@ const HZ_TA_ACTIONS = [
 let _taBubbleTimer = null;
 let _taAutoTimer = null;
 
+// TA 定位到男性角色所在的槽位（默认 B；A 为男性时取 A）
+function hzTaSide() {
+  const gA = document.getElementById('genderA');
+  const gB = document.getElementById('genderB');
+  if (gB && gB.value === 'male') return 'B';
+  if (gA && gA.value === 'male') return 'A';
+  return 'B';
+}
+
+// TA 的名字：始终取男性角色的名字，交换后自动跟随，不会变成对方的名字
 function hzTaName() {
-  const el = document.getElementById('nameA');
+  const el = document.getElementById('name' + hzTaSide());
   const name = el && el.value.trim();
   if (name) return name;
   try {
@@ -235,22 +304,72 @@ function hzSay(text) {
   }, 3200);
 }
 
+function hzTaPick(arr, fallback) {
+  return (arr && arr.length) ? arr[Math.floor(Math.random() * arr.length)] : fallback;
+}
+
 function hzTaLine(type) {
-  const arr = HZ_TA_LINES[type];
-  return arr[Math.floor(Math.random() * arr.length)];
+  return hzTaPick(HZ_TA_LINES[type], '');
+}
+
+// 姿势台词按实际切到的姿势族取句
+function hzTaPoseLine(fam) {
+  return hzTaPick(HZ_POSE_LINES[fam], '换个姿势试试');
+}
+
+// 箱子（坐/躺）与清洁柜（站立）的台词分开
+function hzTaBoxLine(locker) {
+  return hzTaPick(locker ? HZ_BOX_LINES.locker : HZ_BOX_LINES.box, '');
 }
 
 function hzTaSetHeight() {
-  const el = document.getElementById('heightA');
+  const el = document.getElementById('height' + hzTaSide());
   if (!el) return;
   el.value = (150 + Math.random() * 50).toFixed(1);
   updateScene();
   hzSay(hzTaLine('height'));
 }
 
+// 当前箱子类型下可用的姿势族（优先用扫描确认过的可行项）
+function hzTaPoseFamilies() {
+  const lockerEl = document.getElementById('boxTypeLocker');
+  const fams = ((lockerEl && lockerEl.checked) ? window.STAND_FAMS : window.FAMILIES) || [];
+  const scan = window.lastScan;
+  const ok = fams.filter(function (fam) { return !scan || !scan[fam] || scan[fam].ok; });
+  return ok.length ? ok : fams.slice();
+}
+
+// 把姿势栏固定到指定姿势族（选项是按需动态补的，没有就建一个）
+function hzTaSetPose(fam) {
+  const sel = document.getElementById('poseFamily');
+  if (!sel) return false;
+  let opt = null;
+  for (let i = 0; i < sel.options.length; i++) {
+    if (sel.options[i].value === fam) { opt = sel.options[i]; break; }
+  }
+  if (!opt) {
+    opt = document.createElement('option');
+    opt.value = fam;
+    sel.appendChild(opt);
+  }
+  const lockerEl = document.getElementById('boxTypeLocker');
+  opt.dataset.kind = (lockerEl && lockerEl.checked) ? 'locker' : 'box';
+  opt.hidden = false;
+  opt.disabled = false;
+  opt.textContent = (window.FAMILY_NAMES && window.FAMILY_NAMES[fam]) || fam;
+  sel.value = fam;
+  return sel.value === fam;
+}
+
+// TA 切换姿势：先抽定一个姿势族，再按这个姿势说台词
 function hzTaSwitchPose() {
-  reroll();
-  hzSay(hzTaLine('pose'));
+  const fams = hzTaPoseFamilies();
+  if (!fams.length) { reroll(); hzSay('换个姿势试试'); return; }
+  const fam = fams[Math.floor(Math.random() * fams.length)];
+  window.diceAuto = false;   // 固定到抽中的姿势，不走“自动推荐”
+  if (hzTaSetPose(fam)) updateScene();
+  else reroll();
+  hzSay(hzTaPoseLine(fam));
 }
 
 function hzTaSwitchBox() {
@@ -261,7 +380,7 @@ function hzTaSwitchBox() {
   locker.checked = toLocker;
   box.checked = !toLocker;
   onBoxTypeChange();
-  hzSay(hzTaLine('box'));
+  hzSay(hzTaBoxLine(toLocker));
 }
 
 function hzTaSwitchView() {
