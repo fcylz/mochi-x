@@ -342,6 +342,12 @@ html += '\n<!-- __MOCHI_EOF__ ' + buildStamp + ' -->\n';
   if (bad.length) { console.error('❌ #797 结构闸：' + bad.join('；') + '（查 src/template.html 尾部注释是否被改破）'); process.exit(1); }
 })();
 
+// ===== 动态按需加载模块（hakozume-simulator 装箱模拟器）=====
+// 不进 jsFiles/cssFiles，不生成 <script defer> 标签，首次 hakozumeApi.open() 时由 loader 动态注入。
+// 设计意图：首屏零开销（不加载 1.3MB three.js + 引擎 + 面板），规避 iOS/WebKit 首开卡顿。
+// 文件名放 if 之外：哨兵检查（artifactText）要识别这些产物（它们不在 extSet 里）。
+const DYNAMIC_MODULE_FILES = ['hakozume-engine.js', 'hakozume-panel.js'];
+
 if (!CHECK_SENTINELS) {
 // PERF-PLAN 阶段 1：写外置产物 js/<file>——先清空目录（防文件改名/移回 core 后旧文件
 // 残留，被 sw precache 扫到、被提交进库）；不带构建戳（PERF-PLAN §3：未改文件字节
@@ -352,13 +358,9 @@ mkdirSync(jsDir, { recursive: true });
 extWrapped.forEach((code, i) => writeFileSync(join(jsDir, extFiles[i]), code));
 console.log('已外置 ' + extFiles.length + ' 个 JS → js/（' + extWrapped.reduce((n, c) => n + Buffer.byteLength(c, 'utf8'), 0) + ' 字节）；core 内联 ' + coreFiles.length + ' 个文件');
 
-// ===== 动态按需加载模块（hakozume-simulator 装箱模拟器）=====
-// 不进 jsFiles/cssFiles，不生成 <script defer> 标签，首次 hakozumeApi.open() 时由 loader 动态注入。
-// 设计意图：首屏零开销（不加载 1.3MB three.js + 引擎 + 面板），规避 iOS/WebKit 首开卡顿。
-const DYNAMIC_MODULES = [
-  { src: 'hakozume-engine.js', dest: join(jsDir, 'hakozume-engine.js'), minify: 'js' },
-  { src: 'hakozume-panel.js',  dest: join(jsDir, 'hakozume-panel.js'),  minify: 'js' },
-];
+const DYNAMIC_MODULES = DYNAMIC_MODULE_FILES.map(function (f) {
+  return { src: f, dest: join(jsDir, f), minify: 'js' };
+});
 const dynamicBytes = [];
 DYNAMIC_MODULES.forEach(m => {
   let code = read(join('js', m.src));
@@ -414,6 +416,21 @@ console.log('已复制 PWA 文件 → ' + pwaFiles.join(', ') + '（sw 缓存版
 // （防止并行会话/旧缓冲把已移除的代码改回来）。
 // 维护：新增关键修复时在此登记一行 { name, file, needle }（needle 为产物中的特征串）。
 const FIX_SENTINELS = [
+  // ==== 2026-11-02 装箱模拟器（「和TA玩装箱」）全链路修复：单文件被拆成 hakozume-engine.js /
+  //   hakozume-panel.js 两个各自独立的 IIFE 后出现三类断裂——①engine.init() 裸调 panel 私有函数
+  //   （setupControls/updateScene/animate）→ ReferenceError，面板白屏；②Object.assign(window,_exported)
+  //   按值快照导出 scene/camera/renderer/walkGroup（加载时全是 undefined），panel 裸引用全拿到 undefined；
+  //   ③_animateActive 从未声明却在 close() 赋值 → 严格模式抛错，清理与停止循环全部中断。
+  //   另修：loader 用对象参数调 openModal(签名是位置参数)→标题显示 [object Object]；ta-body-profile
+  //   只读不写 → TA 永远默认值；close 改为只暂停不销毁 renderer（避免 iOS WebGL context lost）。
+  { name: 'hakozume-a 状态 accessor 导出（删/改回 Object.assign＝panel 又拿到 undefined 快照，白屏复发）', file: 'js/hakozume-engine.js', needle: "_exposeState('scene'" },
+  { name: 'hakozume-b panel 顶层函数导出（删＝engine.init 的 window.setupControls/animate 落空，面板打不开）', file: 'js/hakozume-panel.js', needle: 'setupControls: setupControls' },
+  { name: 'hakozume-c rAF 停止守卫（删＝关闭面板后仍在满帧渲染，持续发热耗电、循环叠加）', file: 'js/hakozume-panel.js', needle: 'if (!_animateActive) return;' },
+  { name: 'hakozume-d 关闭只暂停不销毁 renderer（改回 dispose+移除 canvas＝反复开关重建 WebGL，iOS context lost）', file: 'js/hakozume-panel.js', needle: 'stopAnimate();' },
+  { name: 'hakozume-e 加载失败弹窗走位置参数签名（改回对象＝标题变成 [object Object]、按钮失效）', file: 'js/hakozume-loader.js', needle: "window.openModal('📦 加载失败'" },
+  { name: 'hakozume-f TA 身体数据写入入口（删＝ta-body-profile 永远没有写入方，TA 恒为默认 175/男）', file: 'js/hakozume-panel.js', needle: "s.set('ta-body-profile'" },
+  { name: 'hakozume-g 导出表清除未定义常量（改回 ANA_DIMS/FAMILY_NAMES_LOCKER＝Object.assign 整体抛 ReferenceError，engine 全部导出失效，白屏复发）', file: 'js/hakozume-engine.js', needle: 'ANA_DIMS', absent: true },
+  { name: 'hakozume-h 切换视角 crosshair 判空（删＝第一人称准星元素缺失时 switchView 抛 TypeError，视角按钮点了报错）', file: 'js/hakozume-panel.js', needle: "const ch = document.getElementById('crosshair')" },
   // ==== 2026-10-16 #1567（作者直派「点【折叠公告】后每次重开网站都保存这个状态，不用重复点折叠/展开」＋折叠视图只留
   //   「免费·署名·防倒卖」「使用前提」「免责声明」三张卡与品牌卡）:折叠偏好落 xy-home-v2:splash-folded 根键（按设备、
   //   不随联系人），开屏按 ageOk 回填（声明改版需重新勾选时保持全文展开）；折叠时收起顶卡/公告已精简条/备份/
@@ -6625,7 +6642,7 @@ try {
       try { return readFileSync(join(root, s.file.slice(4)), 'utf8'); } catch (e) { return ''; }
     }
     // PERF-PLAN 阶段 1：外置文件的哨兵改读 js/<file> 对应产物（外置后这些 needle 不在 index.html）
-    if (s.file && s.file.indexOf('js/') === 0 && extSet.has(s.file.slice(3))) {
+    if (s.file && s.file.indexOf('js/') === 0 && (extSet.has(s.file.slice(3)) || DYNAMIC_MODULE_FILES.indexOf(s.file.slice(3)) >= 0)) {
       try { return readFileSync(join(root, 'js', s.file.slice(3)), 'utf8'); } catch (e) { return ''; }
     }
     return built;

@@ -34,6 +34,9 @@ const _panelHTML = `
           <div class="input-item"><span class="hint">身高 (cm)</span><input type="number" id="heightA" value="158.0" step="0.1" oninput="updateScene()"></div>
           <div class="input-item" style="flex: 0.35;"><span class="hint">颜色</span><input type="color" id="colorA" class="color-picker" value="#ffcc99" oninput="updateScene()"></div>
         </div>
+        <div class="input-row">
+          <button class="switch-btn hz-save-ta" id="hz-save-ta" onclick="saveTaProfile()">💾 记住 TA 的身体数据</button>
+        </div>
       </div>
       <div class="input-group group-b">
         <div class="section-header"><strong>B</strong></div>
@@ -90,7 +93,8 @@ const _panelHTML = `
     </div>
   </div>
   <button id="hz-close-btn" style="position:absolute;top:10px;right:10px;z-index:1000;width:36px;height:36px;border-radius:50%;border:none;background:rgba(0,0,0,0.7);color:white;font-size:20px;cursor:pointer;line-height:1;">✕</button>
-  <div id="view-label"></div>
+  <div id="view-label">第三人称视角</div>
+  <div id="crosshair" style="display:none;"></div>
 </div>
 `;
 
@@ -114,7 +118,69 @@ function togglePanel() {
   if (text) text.textContent = panel.classList.contains('collapsed') ? '展开' : '收起';
 }
 
-window.togglePanel = togglePanel;
+// ===== 跨文件导出 =====
+// engine.js 是另一个独立 IIFE，init() 里只能经由 window 调这些函数；
+// 面板 HTML 的内联 oninput/onchange/onclick 同样在全局作用域求值。
+// 必须放顶层导出（而不是等 init() 里挂），这样 init 失败时控件也不会全哑。
+Object.assign(window, {
+  togglePanel: togglePanel,
+  setupControls: setupControls,
+  updateScene: updateScene,
+  switchView: switchView,
+  shareToX: shareToX,
+  reroll: reroll,
+  onPoseSelect: onPoseSelect,
+  onBoxTypeChange: onBoxTypeChange,
+  animate: animate,
+  stepSolver: stepSolver,
+  stepScan: stepScan,
+  renderInfo: renderInfo,
+  saveTaProfile: saveTaProfile
+});
+
+// ===== 记住 TA 的身体数据 =====
+// A 组语义就是 TA：写入当前联系人的 ta-body-profile（与 loader 的 readTaBodyProfile
+// 同一存储键），下次进入自动带出；按联系人隔离，不碰联系人姓名/称呼键。
+function taProfileStore() {
+  try {
+    if (typeof window.activeStore === 'function') {
+      const s = window.activeStore();
+      if (s && typeof s.set === 'function') return s;
+    }
+    if (typeof window.xyStore === 'function') {
+      const s = window.xyStore('xy-home-v2');
+      if (s && typeof s.set === 'function') return s;
+    }
+  } catch (e) {}
+  return null;
+}
+
+function markTaSaved(saved) {
+  const btn = document.getElementById('hz-save-ta');
+  if (!btn) return;
+  btn.textContent = saved ? '✅ 已记住 TA 的身体数据' : '💾 记住 TA 的身体数据';
+  btn.classList.toggle('is-saved', !!saved);
+}
+
+function saveTaProfile() {
+  try {
+    const s = taProfileStore();
+    if (!s) { if (window.toast) window.toast('当前环境无法保存'); return; }
+    // xyStore 按字符串存取（localStorage.setItem(key, v) 不做序列化）——直接传对象
+    // 会存成 "[object Object]"，刷新后读回来解析不出来，档案等于没保存。
+    s.set('ta-body-profile', JSON.stringify({
+      name: document.getElementById('nameA').value || 'TA',
+      gender: document.getElementById('genderA').value || 'male',
+      height: parseFloat(document.getElementById('heightA').value) || 175,
+      color: document.getElementById('colorA').value || '#FF6B6B'
+    }));
+    markTaSaved(true);
+    if (window.toast) window.toast('已记住 TA 的身体数据');
+  } catch (e) {
+    console.error('保存 TA 身体数据失败:', e);
+    if (window.toast) window.toast('保存失败，请重试');
+  }
+}
 
 // ===== 原始 panel 代码 =====
 function addJoint(anchor) {
@@ -490,8 +556,27 @@ function updateScene() {
     renderInfo();
 }
 
+// 渲染循环：animate() 只负责【幂等启动】，真正的每帧逻辑在 _tick 里。
+// 以前是无条件 requestAnimationFrame 自递归，close() 的停止标志永远不生效 →
+// 面板关了仍在满帧渲染（持续发热耗电），反复开关还会叠加多条循环。
+let _animateActive = false;
+let _rafId = 0;
+
 function animate() {
-    requestAnimationFrame(animate);
+    _animateActive = true;
+    if (_rafId) return;                       // 已在循环中，不重复启动
+    _rafId = requestAnimationFrame(_tick);
+}
+
+function stopAnimate() {
+    _animateActive = false;
+    if (_rafId) { cancelAnimationFrame(_rafId); _rafId = 0; }
+}
+
+function _tick() {
+    _rafId = 0;
+    if (!_animateActive) return;              // close() 后立刻停，不再排队
+    _rafId = requestAnimationFrame(_tick);
 
     stepSolver();
     walkGroup.updateMatrixWorld(true);
@@ -604,7 +689,8 @@ function switchView() {
         document.getElementById('view-label').innerText = `${myName} 的视角`;
     }
 
-    document.getElementById('crosshair').style.display = currentView === '3rd' ? 'none' : 'block';
+    const ch = document.getElementById('crosshair');
+    if (ch) ch.style.display = currentView === '3rd' ? 'none' : 'block';
     buildBox(currentBox, readBoxSettings().lid);   // 第一人称时墙壁设为不透明／第三人称时恢复透明
     personA.headParts.visible = true; personA.nameTag.visible = true;
     personB.headParts.visible = true; personB.nameTag.visible = true;
@@ -766,6 +852,16 @@ function shareToX() {
 // ===== hzPanel 对外接口 =====
 let _initialized = false;
 
+// 深色模式：3D 画布与面板底色跟随站点主题（data-theme 由 personalize.js 写在 <html>）
+function applyTheme() {
+  const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const root = document.getElementById('hakozume-root');
+  if (root) root.style.background = dark ? '#12121a' : '#ffffff';
+  if (typeof scene !== 'undefined' && scene) {
+    scene.background = new THREE.Color(dark ? 0x12121a : 0xffffff);
+  }
+}
+
 window.hzPanel = {
   visible: false,
   
@@ -779,15 +875,12 @@ window.hzPanel = {
       if (params.colorA !== undefined) document.getElementById('colorA').value = params.colorA;
     }
     
-    // 深色模式适配（THREE scene 背景）
-    if (window.scene && document.documentElement.getAttribute('data-theme') === 'dark') {
-      scene.background = new THREE.Color(0x12121a);
-      document.getElementById('hakozume-root').style.background = '#12121a';
-    } else if (window.scene) {
-      scene.background = new THREE.Color(0xffffff);
-      document.getElementById('hakozume-root').style.background = '#ffffff';
-    }
-    
+    // 已有档案时把按钮显示成「已记住」
+    try {
+      const s = taProfileStore();
+      markTaSaved(!!(s && typeof s.get === 'function' && s.get('ta-body-profile')));
+    } catch (e) {}
+
     document.getElementById('hakozume-root').style.display = 'block';
     this.visible = true;
     
@@ -799,22 +892,21 @@ window.hzPanel = {
       onWindowResize();
       updateScene();
     }
+
+    // 深色背景必须在 init() 之后应用：首帧前 scene 还不存在，提前设会落空
+    applyTheme();
+    // close() 只是暂停循环，这里幂等恢复
+    animate();
   },
   
   close: function() {
     if (!this.visible) return;
-    document.getElementById('hakozume-root').style.display = 'none';
+    const root = document.getElementById('hakozume-root');
+    if (root) root.style.display = 'none';
     this.visible = false;
-    // 暂停 animate 循环（通过设标志）
-    _animateActive = false;
-    // 释放 WebGL
-    if (window.renderer) {
-      try { window.renderer.dispose(); } catch(e) {}
-      if (window.renderer.domElement && window.renderer.domElement.parentNode) {
-        window.renderer.domElement.parentNode.removeChild(window.renderer.domElement);
-      }
-    }
-    _initialized = false; // 让下次 open 重新 init
+    // 只暂停渲染循环，保留 renderer/canvas：频繁 dispose 再重建 WebGL 上下文
+    // 在 iOS 上极易 context lost；彻底释放统一走 dispose()
+    stopAnimate();
   },
   
   reroll: function() {
@@ -832,12 +924,25 @@ window.hzPanel = {
     if (p.genderA !== undefined && document.getElementById('genderA').value !== p.genderA) { document.getElementById('genderA').value = p.genderA; changed = true; }
     if (p.heightA !== undefined && document.getElementById('heightA').value != p.heightA) { document.getElementById('heightA').value = p.heightA; changed = true; }
     if (p.colorA !== undefined && document.getElementById('colorA').value !== p.colorA) { document.getElementById('colorA').value = p.colorA; changed = true; }
-    if (changed && typeof window.updateScene === 'function') window.updateScene();
+    // 面板尚未初始化时（scene/walkGroup 还没建）只写 DOM 值，
+    // 由随后的 open() → init() 读 DOM 完成首帧，避免 updateScene 崩在 undefined 上
+    if (changed && _initialized && typeof window.updateScene === 'function') window.updateScene();
   },
   
   dispose: function() {
     this.close();
-    document.getElementById('hakozume-root').remove();
+    stopAnimate();
+    const root = document.getElementById('hakozume-root');
+    if (root) root.remove();
+    // 真正释放 WebGL 资源（页面卸载/彻底关闭时用；日常开关走 close 的暂停）
+    if (typeof renderer !== 'undefined' && renderer) {
+      try { renderer.dispose(); } catch (e) {}
+      if (renderer.domElement && renderer.domElement.parentNode) {
+        renderer.domElement.parentNode.removeChild(renderer.domElement);
+      }
+      try { renderer = null; } catch (e) {}
+    }
+    _initialized = false;
   }
 };
 

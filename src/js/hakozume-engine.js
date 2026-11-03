@@ -64,24 +64,16 @@ function init() {
 
     clock = new THREE.Clock();
 
-    setupControls();
+    // 跨文件调用：这些函数定义在 hakozume-panel.js（独立 IIFE），只能经由 window 取。
+    // 直接裸调用会抛 ReferenceError，导致 init() 从这一行开始整体中断（面板白屏）。
+    window.setupControls();
 
     window.addEventListener('resize', onWindowResize);
-    
-    window.updateScene = updateScene;
-    window.switchView = switchView;
-    window.swapAB = swapAB;
-    window.shareToX = shareToX;
-    window.reroll = reroll;
-    window.onPoseSelect = onPoseSelect;
-    window.onBoxTypeChange = onBoxTypeChange;
 
-    window.togglePanel = () => {
-        const panel = document.getElementById('ui-panel');
-        const text = document.getElementById('toggle-text');
-        panel.classList.toggle('collapsed');
-        text.innerText = panel.classList.contains('collapsed') ? '展开' : '收起';
-    };
+    // updateScene / switchView / shareToX / reroll / onPoseSelect / onBoxTypeChange /
+    // togglePanel 统一由 hakozume-panel.js 顶层导出；这里不能重复赋值，
+    // 否则会把 panel 的导出覆盖成 undefined。swapAB 由 engine 自己定义，仍在此挂出。
+    window.swapAB = swapAB;
 
     // 输入框失焦时，把面板的滚动位置重置回顶部
     document.querySelectorAll('#ui-panel input, #ui-panel select').forEach(element => {
@@ -95,8 +87,8 @@ function init() {
         });
     });
 
-    updateScene();
-    animate();
+    window.updateScene();
+    window.animate();
 }
 
 function onWindowResize() {
@@ -114,7 +106,7 @@ function swapAB() {
         elA.value = elB.value;
         elB.value = tmp;
     });
-    updateScene();
+    window.updateScene();
 }
 
 function createMannequin(color, heightCm, gender, name, role, otherConfig) {
@@ -1149,22 +1141,67 @@ function* solveGen(o){
 
 
 // ===== 暴露到 window =====
-// 注意：只导出原始 HTML 里的真正顶层变量/常量/函数。
-// box 是 solveGen() 内部的局部变量（L1443 let box;），不能导出。
+// 可变状态必须用 accessor 导出：panel.js 是另一个独立 IIFE，裸标识符（renderer /
+// walkGroup / personA / rotation ...）只会解析到 window 属性。Object.assign 是
+// 按值拷贝，执行时机在脚本加载时——那时 scene/camera/renderer 还是 undefined，
+// init() 之后再赋值也同步不过来，panel 里 renderer.render(scene, camera) 会崩。
+// 用 get/set 直通本闭包内的变量，两个 IIFE 才真正共享同一份状态。
+// box 是 solveGen() 内部的局部变量，不导出。
+function _exposeState(name, get, set) {
+  try {
+    Object.defineProperty(window, name, {
+      configurable: true,
+      enumerable: true,
+      get: get,
+      set: set
+    });
+  } catch (e) {
+    console.warn('hakozume-engine: 导出 ' + name + ' 失败', e);
+  }
+}
+
+_exposeState('scene', function () { return scene; }, function (v) { scene = v; });
+_exposeState('camera', function () { return camera; }, function (v) { camera = v; });
+_exposeState('renderer', function () { return renderer; }, function (v) { renderer = v; });
+_exposeState('clock', function () { return clock; }, function (v) { clock = v; });
+_exposeState('personA', function () { return personA; }, function (v) { personA = v; });
+_exposeState('personB', function () { return personB; }, function (v) { personB = v; });
+_exposeState('walkGroup', function () { return walkGroup; }, function (v) { walkGroup = v; });
+_exposeState('boxGroup', function () { return boxGroup; }, function (v) { boxGroup = v; });
+_exposeState('currentView', function () { return currentView; }, function (v) { currentView = v; });
+_exposeState('carrySide', function () { return carrySide; }, function (v) { carrySide = v; });
+_exposeState('currentBox', function () { return currentBox; }, function (v) { currentBox = v; });
+_exposeState('solving', function () { return solving; }, function (v) { solving = v; });
+_exposeState('diceAuto', function () { return diceAuto; }, function (v) { diceAuto = v; });
+_exposeState('variantSeed', function () { return variantSeed; }, function (v) { variantSeed = v; });
+_exposeState('rerollPending', function () { return rerollPending; }, function (v) { rerollPending = v; });
+_exposeState('lastResult', function () { return lastResult; }, function (v) { lastResult = v; });
+_exposeState('lastKey', function () { return lastKey; }, function (v) { lastKey = v; });
+_exposeState('pendingKey', function () { return pendingKey; }, function (v) { pendingKey = v; });
+_exposeState('lastScan', function () { return lastScan; }, function (v) { lastScan = v; });
+_exposeState('scanRun', function () { return scanRun; }, function (v) { scanRun = v; });
+_exposeState('scanParams', function () { return scanParams; }, function (v) { scanParams = v; });
+_exposeState('scanDoneKey', function () { return scanDoneKey; }, function (v) { scanDoneKey = v; });
+_exposeState('solveToken', function () { return solveToken; }, function (v) { solveToken = v; });
+_exposeState('solverRun', function () { return solverRun; }, function (v) { solverRun = v; });
+_exposeState('solverTimer', function () { return solverTimer; }, function (v) { solverTimer = v; });
+_exposeState('rotation', function () { return rotation; }, function (v) { rotation = v; });
+_exposeState('camDist', function () { return camDist; }, function (v) { camDist = v; });
+_exposeState('isDragging', function () { return isDragging; }, function (v) { isDragging = v; });
+_exposeState('previousTouch', function () { return previousTouch; }, function (v) { previousTouch = v; });
+_exposeState('initialPinchDist', function () { return initialPinchDist; }, function (v) { initialPinchDist = v; });
+
 const _exported = {
-  // 变量
-  scene, camera, renderer, clock,
-  personA, personB, walkGroup, boxGroup,
-  currentView, carrySide,
-  currentBox,
-  solving, diceAuto, variantSeed, rerollPending,
-  lastResult, lastKey, pendingKey,
-  lastScan, scanRun, scanParams, scanDoneKey,
   // 常量
+  // 注意：ANA_DIMS / FAMILY_NAMES_LOCKER 曾留在这张表里但从未在本文件定义——
+  // 严格模式下引用未定义变量直接 ReferenceError，整个 Object.assign 不执行，
+  // window.FAMILIES / createMannequin 等全部挂不上 → panel 依赖检查失败白屏。
+  // panel 也不使用这两个常量，直接移除。
   PI, GN, ARM_NEUTRAL, DEF_W, G_SIG,
   FAMILIES, STAND_FAMS, SYM_FAMS,
-  ANA_FAMS, ALLFOURS_FAMS, ANA_DIMS,
-  FAMILY_NAMES, FAMILY_NAMES_LOCKER,
+  ANA_FAMS, ALLFOURS_FAMS,
+  FAMILY_NAMES,
+  BOX_DEFAULT, LOCKER_DEFAULT, DEFAULT_ROT_3RD,
   // 函数
   init, onWindowResize, swapAB, createMannequin,
   mulberry32, gauss, clampN,

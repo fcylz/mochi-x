@@ -107,6 +107,9 @@ input[type="number"] { -moz-appearance: textfield; }
 .switch-btn { width: 100%; padding: 12px; background: #333; color: white; border: none; border-radius: 25px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 14px; -webkit-tap-highlight-color: transparent; margin-bottom: 10px; }
 .switch-btn:active { background: #000; transform: scale(0.98); }
 .swap-btn { margin-bottom: 5px; }
+.hz-save-ta { background: #4a90d9; font-size: 13px; padding: 10px; margin-bottom: 0; }
+.hz-save-ta:active { background: #357ab8; }
+.hz-save-ta.is-saved { background: #e8f3ff; color: #1b5e9e; }
 .anim-controls {
 display: flex;
 gap: 8px;
@@ -145,6 +148,11 @@ text-decoration: none; margin-top: 10px;
 .info-value { font-weight: 800; font-size: 18px; color: #2c3e50; font-variant-numeric: tabular-nums; }
 .unit { font-size: 11px; margin-left: 3px; color: #7f8c8d; font-weight: normal; }
 #view-label { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.6); color: #fff; padding: 4px 10px; border-radius: 12px; font-size: 11px; z-index: 100; pointer-events: none; }
+#view-label:empty { display: none; }
+#crosshair { position: absolute; top: 50%; left: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; z-index: 100; pointer-events: none; }
+#crosshair::before, #crosshair::after { content: ''; position: absolute; background: rgba(255,255,255,0.85); }
+#crosshair::before { left: 6px; top: 0; width: 2px; height: 14px; }
+#crosshair::after { top: 6px; left: 0; width: 14px; height: 2px; }
 [data-theme="dark"] #ui-panel {
 background: rgba(28, 28, 32, 0.96);
 border: 1px solid rgba(255,255,255,0.08);
@@ -174,6 +182,8 @@ color: #e0e0e4;
 [data-theme="dark"] .radio-switch input:checked + label { background: #3a3a40; color: #f0f0f4; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
 [data-theme="dark"] .switch-btn { background: #3a3a40; }
 [data-theme="dark"] .switch-btn:active { background: #505058; }
+[data-theme="dark"] .hz-save-ta { background: #2f5f8f; }
+[data-theme="dark"] .hz-save-ta.is-saved { background: rgba(74,144,217,0.18); color: #8ec3f0; }
 [data-theme="dark"] .btn-anim { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.15); color: #d0d0d4; }
 [data-theme="dark"] .btn-anim.active { background: #3a3a40; color: #f0f0f4; border-color: #505058; }
 [data-theme="dark"] .info-box { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.08); }

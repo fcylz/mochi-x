@@ -28,6 +28,9 @@ const _panelHTML = `
 <div class="input-item"><span class="hint">身高 (cm)</span><input type="number" id="heightA" value="158.0" step="0.1" oninput="updateScene()"></div>
 <div class="input-item" style="flex: 0.35;"><span class="hint">颜色</span><input type="color" id="colorA" class="color-picker" value="#ffcc99" oninput="updateScene()"></div>
 </div>
+<div class="input-row">
+<button class="switch-btn hz-save-ta" id="hz-save-ta" onclick="saveTaProfile()">💾 记住 TA 的身体数据</button>
+</div>
 </div>
 <div class="input-group group-b">
 <div class="section-header"><strong>B</strong></div>
@@ -84,7 +87,8 @@ const _panelHTML = `
 </div>
 </div>
 <button id="hz-close-btn" style="position:absolute;top:10px;right:10px;z-index:1000;width:36px;height:36px;border-radius:50%;border:none;background:rgba(0,0,0,0.7);color:white;font-size:20px;cursor:pointer;line-height:1;">✕</button>
-<div id="view-label"></div>
+<div id="view-label">第三人称视角</div>
+<div id="crosshair" style="display:none;"></div>
 </div>
 `;
 function _ensureDOM() {
@@ -102,7 +106,57 @@ panel.classList.toggle('collapsed');
 const text = document.getElementById('toggle-text');
 if (text) text.textContent = panel.classList.contains('collapsed') ? '展开' : '收起';
 }
-window.togglePanel = togglePanel;
+Object.assign(window, {
+togglePanel: togglePanel,
+setupControls: setupControls,
+updateScene: updateScene,
+switchView: switchView,
+shareToX: shareToX,
+reroll: reroll,
+onPoseSelect: onPoseSelect,
+onBoxTypeChange: onBoxTypeChange,
+animate: animate,
+stepSolver: stepSolver,
+stepScan: stepScan,
+renderInfo: renderInfo,
+saveTaProfile: saveTaProfile
+});
+function taProfileStore() {
+try {
+if (typeof window.activeStore === 'function') {
+const s = window.activeStore();
+if (s && typeof s.set === 'function') return s;
+}
+if (typeof window.xyStore === 'function') {
+const s = window.xyStore('xy-home-v2');
+if (s && typeof s.set === 'function') return s;
+}
+} catch (e) {}
+return null;
+}
+function markTaSaved(saved) {
+const btn = document.getElementById('hz-save-ta');
+if (!btn) return;
+btn.textContent = saved ? '✅ 已记住 TA 的身体数据' : '💾 记住 TA 的身体数据';
+btn.classList.toggle('is-saved', !!saved);
+}
+function saveTaProfile() {
+try {
+const s = taProfileStore();
+if (!s) { if (window.toast) window.toast('当前环境无法保存'); return; }
+s.set('ta-body-profile', JSON.stringify({
+name: document.getElementById('nameA').value || 'TA',
+gender: document.getElementById('genderA').value || 'male',
+height: parseFloat(document.getElementById('heightA').value) || 175,
+color: document.getElementById('colorA').value || '#FF6B6B'
+}));
+markTaSaved(true);
+if (window.toast) window.toast('已记住 TA 的身体数据');
+} catch (e) {
+console.error('保存 TA 身体数据失败:', e);
+if (window.toast) window.toast('保存失败，请重试');
+}
+}
 function addJoint(anchor) {
 const mesh = anchor.children[0];
 const half = mesh.geometry.parameters.height / 2;
@@ -424,8 +478,21 @@ if(currentView === 'B') { personB.headParts.visible = false; personB.nameTag.vis
 }
 renderInfo();
 }
+let _animateActive = false;
+let _rafId = 0;
 function animate() {
-requestAnimationFrame(animate);
+_animateActive = true;
+if (_rafId) return;                       // 已在循环中，不重复启动
+_rafId = requestAnimationFrame(_tick);
+}
+function stopAnimate() {
+_animateActive = false;
+if (_rafId) { cancelAnimationFrame(_rafId); _rafId = 0; }
+}
+function _tick() {
+_rafId = 0;
+if (!_animateActive) return;              // close() 后立刻停，不再排队
+_rafId = requestAnimationFrame(_tick);
 stepSolver();
 walkGroup.updateMatrixWorld(true);
 const eyeAWorld = personA.headParts.getWorldPosition(new THREE.Vector3());
@@ -519,7 +586,8 @@ document.getElementById('view-label').innerText = '第三人称视角';
 const myName = (currentView === 'A') ? nA : nB;
 document.getElementById('view-label').innerText = `${myName} 的视角`;
 }
-document.getElementById('crosshair').style.display = currentView === '3rd' ? 'none' : 'block';
+const ch = document.getElementById('crosshair');
+if (ch) ch.style.display = currentView === '3rd' ? 'none' : 'block';
 buildBox(currentBox, readBoxSettings().lid);   // 第一人称时墙壁设为不透明／第三人称时恢复透明
 personA.headParts.visible = true; personA.nameTag.visible = true;
 personB.headParts.visible = true; personB.nameTag.visible = true;
@@ -671,6 +739,14 @@ clearProfile: function () { try { localStorage.removeItem(PROFILE_KEY); } catch 
 };
 })();
 let _initialized = false;
+function applyTheme() {
+const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+const root = document.getElementById('hakozume-root');
+if (root) root.style.background = dark ? '#12121a' : '#ffffff';
+if (typeof scene !== 'undefined' && scene) {
+scene.background = new THREE.Color(dark ? 0x12121a : 0xffffff);
+}
+}
 window.hzPanel = {
 visible: false,
 open: function(params) {
@@ -681,13 +757,10 @@ if (params.genderA !== undefined) document.getElementById('genderA').value = par
 if (params.heightA !== undefined) document.getElementById('heightA').value = params.heightA;
 if (params.colorA !== undefined) document.getElementById('colorA').value = params.colorA;
 }
-if (window.scene && document.documentElement.getAttribute('data-theme') === 'dark') {
-scene.background = new THREE.Color(0x12121a);
-document.getElementById('hakozume-root').style.background = '#12121a';
-} else if (window.scene) {
-scene.background = new THREE.Color(0xffffff);
-document.getElementById('hakozume-root').style.background = '#ffffff';
-}
+try {
+const s = taProfileStore();
+markTaSaved(!!(s && typeof s.get === 'function' && s.get('ta-body-profile')));
+} catch (e) {}
 document.getElementById('hakozume-root').style.display = 'block';
 this.visible = true;
 if (!_initialized) {
@@ -697,19 +770,15 @@ _initialized = true;
 onWindowResize();
 updateScene();
 }
+applyTheme();
+animate();
 },
 close: function() {
 if (!this.visible) return;
-document.getElementById('hakozume-root').style.display = 'none';
+const root = document.getElementById('hakozume-root');
+if (root) root.style.display = 'none';
 this.visible = false;
-_animateActive = false;
-if (window.renderer) {
-try { window.renderer.dispose(); } catch(e) {}
-if (window.renderer.domElement && window.renderer.domElement.parentNode) {
-window.renderer.domElement.parentNode.removeChild(window.renderer.domElement);
-}
-}
-_initialized = false; // 让下次 open 重新 init
+stopAnimate();
 },
 reroll: function() {
 if (typeof window.reroll === 'function') window.reroll();
@@ -724,11 +793,21 @@ if (p.nameA !== undefined && document.getElementById('nameA').value !== p.nameA)
 if (p.genderA !== undefined && document.getElementById('genderA').value !== p.genderA) { document.getElementById('genderA').value = p.genderA; changed = true; }
 if (p.heightA !== undefined && document.getElementById('heightA').value != p.heightA) { document.getElementById('heightA').value = p.heightA; changed = true; }
 if (p.colorA !== undefined && document.getElementById('colorA').value !== p.colorA) { document.getElementById('colorA').value = p.colorA; changed = true; }
-if (changed && typeof window.updateScene === 'function') window.updateScene();
+if (changed && _initialized && typeof window.updateScene === 'function') window.updateScene();
 },
 dispose: function() {
 this.close();
-document.getElementById('hakozume-root').remove();
+stopAnimate();
+const root = document.getElementById('hakozume-root');
+if (root) root.remove();
+if (typeof renderer !== 'undefined' && renderer) {
+try { renderer.dispose(); } catch (e) {}
+if (renderer.domElement && renderer.domElement.parentNode) {
+renderer.domElement.parentNode.removeChild(renderer.domElement);
+}
+try { renderer = null; } catch (e) {}
+}
+_initialized = false;
 }
 };
 })();

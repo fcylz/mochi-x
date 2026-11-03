@@ -51,21 +51,9 @@ scene.add(walkGroup);
 boxGroup = new THREE.Group();
 scene.add(boxGroup);
 clock = new THREE.Clock();
-setupControls();
+window.setupControls();
 window.addEventListener('resize', onWindowResize);
-window.updateScene = updateScene;
-window.switchView = switchView;
 window.swapAB = swapAB;
-window.shareToX = shareToX;
-window.reroll = reroll;
-window.onPoseSelect = onPoseSelect;
-window.onBoxTypeChange = onBoxTypeChange;
-window.togglePanel = () => {
-const panel = document.getElementById('ui-panel');
-const text = document.getElementById('toggle-text');
-panel.classList.toggle('collapsed');
-text.innerText = panel.classList.contains('collapsed') ? '展开' : '收起';
-};
 document.querySelectorAll('#ui-panel input, #ui-panel select').forEach(element => {
 element.addEventListener('blur', () => {
 const panel = document.getElementById('ui-panel');
@@ -75,8 +63,8 @@ panel.scrollTop = 0;
 window.scrollTo(0, 0);
 });
 });
-updateScene();
-animate();
+window.updateScene();
+window.animate();
 }
 function onWindowResize() {
 camera.aspect = window.innerWidth / window.innerHeight;
@@ -92,7 +80,7 @@ const tmp = elA.value;
 elA.value = elB.value;
 elB.value = tmp;
 });
-updateScene();
+window.updateScene();
 }
 function createMannequin(color, heightCm, gender, name, role, otherConfig) {
 const group = new THREE.Group();
@@ -1027,18 +1015,54 @@ box.locker=!!ctx.box.locker;
 final.box=box;
 return final;
 }
+function _exposeState(name, get, set) {
+try {
+Object.defineProperty(window, name, {
+configurable: true,
+enumerable: true,
+get: get,
+set: set
+});
+} catch (e) {
+console.warn('hakozume-engine: 导出 ' + name + ' 失败', e);
+}
+}
+_exposeState('scene', function () { return scene; }, function (v) { scene = v; });
+_exposeState('camera', function () { return camera; }, function (v) { camera = v; });
+_exposeState('renderer', function () { return renderer; }, function (v) { renderer = v; });
+_exposeState('clock', function () { return clock; }, function (v) { clock = v; });
+_exposeState('personA', function () { return personA; }, function (v) { personA = v; });
+_exposeState('personB', function () { return personB; }, function (v) { personB = v; });
+_exposeState('walkGroup', function () { return walkGroup; }, function (v) { walkGroup = v; });
+_exposeState('boxGroup', function () { return boxGroup; }, function (v) { boxGroup = v; });
+_exposeState('currentView', function () { return currentView; }, function (v) { currentView = v; });
+_exposeState('carrySide', function () { return carrySide; }, function (v) { carrySide = v; });
+_exposeState('currentBox', function () { return currentBox; }, function (v) { currentBox = v; });
+_exposeState('solving', function () { return solving; }, function (v) { solving = v; });
+_exposeState('diceAuto', function () { return diceAuto; }, function (v) { diceAuto = v; });
+_exposeState('variantSeed', function () { return variantSeed; }, function (v) { variantSeed = v; });
+_exposeState('rerollPending', function () { return rerollPending; }, function (v) { rerollPending = v; });
+_exposeState('lastResult', function () { return lastResult; }, function (v) { lastResult = v; });
+_exposeState('lastKey', function () { return lastKey; }, function (v) { lastKey = v; });
+_exposeState('pendingKey', function () { return pendingKey; }, function (v) { pendingKey = v; });
+_exposeState('lastScan', function () { return lastScan; }, function (v) { lastScan = v; });
+_exposeState('scanRun', function () { return scanRun; }, function (v) { scanRun = v; });
+_exposeState('scanParams', function () { return scanParams; }, function (v) { scanParams = v; });
+_exposeState('scanDoneKey', function () { return scanDoneKey; }, function (v) { scanDoneKey = v; });
+_exposeState('solveToken', function () { return solveToken; }, function (v) { solveToken = v; });
+_exposeState('solverRun', function () { return solverRun; }, function (v) { solverRun = v; });
+_exposeState('solverTimer', function () { return solverTimer; }, function (v) { solverTimer = v; });
+_exposeState('rotation', function () { return rotation; }, function (v) { rotation = v; });
+_exposeState('camDist', function () { return camDist; }, function (v) { camDist = v; });
+_exposeState('isDragging', function () { return isDragging; }, function (v) { isDragging = v; });
+_exposeState('previousTouch', function () { return previousTouch; }, function (v) { previousTouch = v; });
+_exposeState('initialPinchDist', function () { return initialPinchDist; }, function (v) { initialPinchDist = v; });
 const _exported = {
-scene, camera, renderer, clock,
-personA, personB, walkGroup, boxGroup,
-currentView, carrySide,
-currentBox,
-solving, diceAuto, variantSeed, rerollPending,
-lastResult, lastKey, pendingKey,
-lastScan, scanRun, scanParams, scanDoneKey,
 PI, GN, ARM_NEUTRAL, DEF_W, G_SIG,
 FAMILIES, STAND_FAMS, SYM_FAMS,
-ANA_FAMS, ALLFOURS_FAMS, ANA_DIMS,
-FAMILY_NAMES, FAMILY_NAMES_LOCKER,
+ANA_FAMS, ALLFOURS_FAMS,
+FAMILY_NAMES,
+BOX_DEFAULT, LOCKER_DEFAULT, DEFAULT_ROT_3RD,
 init, onWindowResize, swapAB, createMannequin,
 mulberry32, gauss, clampN,
 qMul, qX, qY, qZ, qInv, qRot, qAxes, qAim,
