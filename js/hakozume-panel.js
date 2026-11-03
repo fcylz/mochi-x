@@ -19,21 +19,24 @@ const _panelHTML = `
 <div id="ui-content">
 <p class="app-description">可以模拟装箱的场景。姿势会自动优化。</p>
 <div class="input-group group-a">
-<div class="section-header"><strong>A</strong></div>
+<div class="section-header"><strong>A</strong><span class="hz-group-toggle" id="hz-toggle-A" onclick="toggleNameGroup('A')">收起</span></div>
+<div class="hz-name-rows" id="hz-rows-A">
 <div class="input-row">
 <div class="input-item"><span class="hint">名字</span><input type="text" id="nameA" placeholder="名字A" oninput="updateScene()"></div>
 <div class="input-item" style="flex: 0.6;"><span class="hint">性别</span><select id="genderA" onchange="updateScene()"><option value="male">男</option><option value="female" selected>女</option></select></div>
 </div>
 <div class="input-row">
-<div class="input-item"><span class="hint">身高 (cm)</span><input type="number" id="heightA" value="158.0" step="0.1" oninput="updateScene()"></div>
+<div class="input-item"><span class="hint">身高 (cm)</span><input type="number" id="heightA" min="150" max="200" value="158.0" step="0.1" oninput="updateScene()"></div>
 <div class="input-item" style="flex: 0.35;"><span class="hint">颜色</span><input type="color" id="colorA" class="color-picker" value="#ffcc99" oninput="updateScene()"></div>
 </div>
 <div class="input-row">
 <button class="switch-btn hz-save-ta" id="hz-save-ta" onclick="saveTaProfile()">💾 记住 TA 的身体数据</button>
 </div>
 </div>
+</div>
 <div class="input-group group-b">
-<div class="section-header"><strong>B</strong></div>
+<div class="section-header"><strong>B</strong><span class="hz-group-toggle" id="hz-toggle-B" onclick="toggleNameGroup('B')">收起</span></div>
+<div class="hz-name-rows" id="hz-rows-B">
 <div class="input-row">
 <div class="input-item"><span class="hint">名字</span><input type="text" id="nameB" placeholder="名字B" oninput="updateScene()"></div>
 <div class="input-item" style="flex: 0.6;"><span class="hint">性别</span><select id="genderB" onchange="updateScene()"><option value="male" selected>男</option><option value="female">女</option></select></div>
@@ -41,6 +44,7 @@ const _panelHTML = `
 <div class="input-row">
 <div class="input-item"><span class="hint">身高 (cm)</span><input type="number" id="heightB" value="171.5" step="0.1" oninput="updateScene()"></div>
 <div class="input-item" style="flex: 0.35;"><span class="hint">颜色</span><input type="color" id="colorB" class="color-picker" value="#ffad60" oninput="updateScene()"></div>
+</div>
 </div>
 </div>
 <div class="input-group group-layout">
@@ -80,7 +84,7 @@ const _panelHTML = `
 <button class="switch-btn" onclick="reroll()">🎲 换个姿势</button>
 </div>
 <div style="padding: 0 5px;">
-<button class="switch-btn swap-btn" onclick="swapAB()">⇄ 交换 A 与 B</button>
+<button class="switch-btn swap-btn" onclick="hzUserSwap()">⇄ 交换 A 与 B</button>
 <button class="switch-btn" onclick="switchView()">🔄 切换视角</button>
 </div>
 <div id="info-container"><div class="info-box" id="info"></div></div>
@@ -88,6 +92,7 @@ const _panelHTML = `
 </div>
 <button id="hz-close-btn" style="position:absolute;top:10px;right:10px;z-index:1000;width:36px;height:36px;border-radius:50%;border:none;background:rgba(0,0,0,0.7);color:white;font-size:20px;cursor:pointer;line-height:1;">✕</button>
 <div id="view-label">第三人称视角</div>
+<div id="hz-ta-bubble" class="hz-ta-bubble"></div>
 <div id="crosshair" style="display:none;"></div>
 </div>
 `;
@@ -119,7 +124,9 @@ animate: animate,
 stepSolver: stepSolver,
 stepScan: stepScan,
 renderInfo: renderInfo,
-saveTaProfile: saveTaProfile
+saveTaProfile: saveTaProfile,
+hzUserSwap: hzUserSwap,
+toggleNameGroup: toggleNameGroup
 });
 function taProfileStore() {
 try {
@@ -156,6 +163,125 @@ if (window.toast) window.toast('已记住 TA 的身体数据');
 console.error('保存 TA 身体数据失败:', e);
 if (window.toast) window.toast('保存失败，请重试');
 }
+}
+const HZ_TA_LINES = {
+pose: ['TA想和你做这个动作', '我喜欢这个姿势', '试试这个吧？', '这样抱会更舒服吧', '换这个，感觉怎么样？'],
+box: ['换个箱子玩玩', '这个柜子更挤一点', '箱子这样也挺好', '我喜欢这种空间', '让我挑个新箱子'],
+view: ['从这个角度看更清楚', '让我换个视角看看你', '这样看你好可爱', '转到这边来', '我想看看你的表情'],
+swap: ['这次换我抱你', '换我在上边试试', '我们换个位置吧', '让我在下面一次', '换个位置更好玩'],
+height: ['我今天好像长高了', '让我矮一点，靠你更近', '这个身高差刚好', '换个身高试试', '我喜欢仰视你的感觉']
+};
+const HZ_TA_ACTIONS = [
+{ type: 'pose', weight: 3 },
+{ type: 'box', weight: 3 },
+{ type: 'view', weight: 2 },
+{ type: 'swap', weight: 2 },
+{ type: 'height', weight: 2 }
+];
+let _taBubbleTimer = null;
+let _taAutoTimer = null;
+function hzTaName() {
+const el = document.getElementById('nameA');
+const name = el && el.value.trim();
+if (name) return name;
+try {
+const prof = typeof window.readTaBodyProfile === 'function' ? window.readTaBodyProfile() : null;
+if (prof && prof.name) return prof.name;
+} catch (e) {}
+return 'TA';
+}
+function hzSay(text) {
+const el = document.getElementById('hz-ta-bubble');
+if (!el) return;
+el.textContent = hzTaName() + '：' + text;
+el.classList.add('show');
+if (_taBubbleTimer) clearTimeout(_taBubbleTimer);
+_taBubbleTimer = setTimeout(function () {
+el.classList.remove('show');
+_taBubbleTimer = null;
+}, 3200);
+}
+function hzTaLine(type) {
+const arr = HZ_TA_LINES[type];
+return arr[Math.floor(Math.random() * arr.length)];
+}
+function hzTaSetHeight() {
+const el = document.getElementById('heightA');
+if (!el) return;
+el.value = (150 + Math.random() * 50).toFixed(1);
+updateScene();
+hzSay(hzTaLine('height'));
+}
+function hzTaSwitchPose() {
+reroll();
+hzSay(hzTaLine('pose'));
+}
+function hzTaSwitchBox() {
+const locker = document.getElementById('boxTypeLocker');
+const box = document.getElementById('boxTypeBox');
+if (!locker || !box) return;
+const toLocker = !locker.checked;
+locker.checked = toLocker;
+box.checked = !toLocker;
+onBoxTypeChange();
+hzSay(hzTaLine('box'));
+}
+function hzTaSwitchView() {
+switchView();
+hzSay(hzTaLine('view'));
+}
+function hzTaSwap() {
+if (typeof window.swapAB === 'function') window.swapAB();
+hzSay(hzTaLine('swap'));
+}
+function hzUserSwap() {
+if (typeof window.swapAB === 'function') window.swapAB();
+hzSay('你喜欢这样？');
+}
+function toggleNameGroup(which) {
+const rows = document.getElementById('hz-rows-' + which);
+const btn = document.getElementById('hz-toggle-' + which);
+if (!rows) return;
+const hidden = rows.classList.toggle('hz-hidden');
+if (btn) btn.textContent = hidden ? '展开' : '收起';
+}
+function hzTaTick() {
+_taAutoTimer = null;
+const visible = !!(window.hzPanel && window.hzPanel.visible);
+if (!visible || document.hidden || window.solving) {
+hzTaSchedule();
+return;
+}
+const total = HZ_TA_ACTIONS.reduce(function (sum, a) { return sum + a.weight; }, 0);
+let roll = Math.random() * total;
+let type = HZ_TA_ACTIONS[HZ_TA_ACTIONS.length - 1].type;
+for (let i = 0; i < HZ_TA_ACTIONS.length; i++) {
+roll -= HZ_TA_ACTIONS[i].weight;
+if (roll <= 0) { type = HZ_TA_ACTIONS[i].type; break; }
+}
+switch (type) {
+case 'pose': hzTaSwitchPose(); break;
+case 'box': hzTaSwitchBox(); break;
+case 'view': hzTaSwitchView(); break;
+case 'swap': hzTaSwap(); break;
+case 'height': hzTaSetHeight(); break;
+}
+hzTaSchedule();
+}
+function hzTaSchedule() {
+if (_taAutoTimer) return;
+const delay = (40 + Math.random() * 140) * 1000;
+_taAutoTimer = setTimeout(hzTaTick, delay);
+}
+function hzTaAutoStart() {
+if (_taAutoTimer) return;
+hzTaSchedule();
+}
+function hzTaAutoStop() {
+if (_taAutoTimer) { clearTimeout(_taAutoTimer); _taAutoTimer = null; }
+if (_taBubbleTimer) { clearTimeout(_taBubbleTimer); _taBubbleTimer = null; }
+const el = document.getElementById('hz-ta-bubble');
+if (el) el.classList.remove('show');
 }
 function addJoint(anchor) {
 const mesh = anchor.children[0];
@@ -772,6 +898,7 @@ updateScene();
 }
 applyTheme();
 animate();
+hzTaAutoStart();
 },
 close: function() {
 if (!this.visible) return;
@@ -779,6 +906,7 @@ const root = document.getElementById('hakozume-root');
 if (root) root.style.display = 'none';
 this.visible = false;
 stopAnimate();
+hzTaAutoStop();
 },
 reroll: function() {
 if (typeof window.reroll === 'function') window.reroll();

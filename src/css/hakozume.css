@@ -22,6 +22,9 @@
             -webkit-backdrop-filter: blur(10px);
             box-sizing: border-box;
             transition: all 0.2s ease-out;
+            /* 整体等比缩放到 50%，锚定左上角（位置/尺寸逻辑保持不变） */
+            transform: scale(0.5);
+            transform-origin: top left;
         }
         #canvas-container { width: 100vw; height: 100vh; cursor: move; touch-action: none; }
 
@@ -106,6 +109,9 @@
         .group-layout { background: #f9f9f9; border: 1px solid #eee; }
         .section-header { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
         .section-header strong { font-size: 15px; color: #444; }
+        .hz-group-toggle { margin-left: auto; font-size: 10px; font-weight: bold; color: #666; background: #eee; padding: 3px 8px; border-radius: 9px; cursor: pointer; user-select: none; white-space: nowrap; }
+        .hz-name-rows { display: flex; flex-direction: column; gap: 8px; }
+        .hz-name-rows.hz-hidden { display: none; }
         .input-row { display: flex; gap: 8px; align-items: flex-end; width: 100%; }
         .input-item { display: flex; flex-direction: column; flex: 1; min-width: 0; }
         .hint { font-size: 10px; color: #999; margin-bottom: 2px; font-weight: bold; }
@@ -187,6 +193,17 @@
         #crosshair::before, #crosshair::after { content: ''; position: absolute; background: rgba(255,255,255,0.85); }
         #crosshair::before { left: 6px; top: 0; width: 2px; height: 14px; }
         #crosshair::after { top: 6px; left: 0; width: 14px; height: 2px; }
+        /* TA 台词气泡：房间页气泡被全屏遮罩挡住，这里在模拟器图层内自绘 */
+        .hz-ta-bubble {
+            position: absolute; left: 50%; bottom: 24px;
+            transform: translateX(-50%) translateY(8px);
+            max-width: 70vw; padding: 8px 14px; border-radius: 16px;
+            background: rgba(0, 0, 0, 0.72); color: #fff;
+            font-size: 13px; line-height: 1.4; text-align: center;
+            opacity: 0; transition: opacity 0.25s ease-out, transform 0.25s ease-out;
+            pointer-events: none; z-index: 200;
+        }
+        .hz-ta-bubble.show { opacity: 1; transform: translateX(-50%) translateY(0); }
     /* ===== 深色模式适配 ===== */
     [data-theme="dark"] #ui-panel {
         background: rgba(28, 28, 32, 0.96);
@@ -230,4 +247,6 @@
     /* Hakozume 关闭按钮 */
     [data-theme="dark"] .hz-close-btn { background: rgba(255,255,255,0.08); color: #d0d0d4; }
     [data-theme="dark"] .hz-close-btn:hover { background: rgba(255,255,255,0.15); }
+    [data-theme="dark"] .hz-group-toggle { background: rgba(255,255,255,0.08); color: #a0a0a8; }
+    [data-theme="dark"] .hz-ta-bubble { background: rgba(255,255,255,0.92); color: #1c1c20; }
 
