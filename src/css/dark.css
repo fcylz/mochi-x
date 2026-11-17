@@ -111,6 +111,12 @@
 [data-theme="dark"] .chat-ask-opts { background:var(--dark-card); border-color:var(--dark-border-12); color:var(--ink); }
 [data-theme="dark"] .chat-ask-opts:focus { border-color:var(--ink); }
 [data-theme="dark"] .chat-ask-bulk { background:var(--dark-card); border-color:var(--dark-border-12); color:var(--ink); }
+/* 「我来提问」多题弹窗：紫色主色在暗色下提亮，题块分隔/虚框跟着换深色描边 */
+[data-theme="dark"] #me-ask-mask { --mqa-accent:#B39DDB; --mqa-soft:#3B3450; --mqa-ink:#D6CCF0; }
+[data-theme="dark"] .mqa-q { border-bottom-color:rgba(255,255,255,.09); }
+[data-theme="dark"] .mqa-add-opt, [data-theme="dark"] .mqa-add-q { border-color:rgba(255,255,255,.14); color:var(--dark-soft); }
+[data-theme="dark"] .mqa-send { color:#191320; }
+[data-theme="dark"] .mqa-close { color:var(--dark-soft); }
 /* #1188 邀请记录（暗色同构：折叠行/翻页钮的浅底浅框在暗色下要翻过来） */
 [data-theme="dark"] .chat-ask-hist { border-bottom-color:rgba(255,255,255,.14); }
 [data-theme="dark"] .ih-day-btn { border-color:rgba(255,255,255,.09); background:rgba(255,255,255,.04); color:var(--ink); }
@@ -432,6 +438,15 @@
 [data-theme="dark"] .msg-inplace .ip-opt-chk.on .ip-opt-box { border-color:var(--ink); background:var(--ink); }
 [data-theme="dark"] .msg-inplace .ip-opt-chk.on .ip-opt-box::after { border-color:#111; }
 [data-theme="dark"] .msg-ask-card { background:var(--dark-card-92); border-color:var(--dark-border); }
+/* 我发起的提问卡（special:'me-ask'）：浅紫卡在暗色下换成深卡底＋提亮胶囊/选项行 */
+[data-theme="dark"] .mqa-card { background:#2A2536; color:#EDE8F7; border-color:rgba(255,255,255,.08); }
+[data-theme="dark"] .mqa-tag { background:#3B3450; color:#C9BEF0; }
+[data-theme="dark"] .mqa-opt-row { background:rgba(255,255,255,.06); color:#B9B2CC; }
+[data-theme="dark"] .mqa-opt-row.on { background:rgba(179,157,219,.26); color:#EDE8F7; }
+[data-theme="dark"] .mqa-dot { background:rgba(255,255,255,.26); }
+[data-theme="dark"] .mqa-opt-row.on .mqa-dot { background:#B39DDB; }
+[data-theme="dark"] .mqa-ans { color:#9A93AE; border-top-color:rgba(255,255,255,.12); }
+[data-theme="dark"] .mqa-ans b { color:#D6CCF0; }
 [data-theme="dark"] .msg-choose-card { background:var(--dark-card-92); border-color:var(--dark-border); }
 /* v3.33.x #521：批量问卷长卡片（暗色适配，跨域改动见 WORKLOG；观感对齐单题 ask-card） */
 [data-theme="dark"] .msg-survey-card { background:var(--dark-card-92); border-color:var(--dark-border); }

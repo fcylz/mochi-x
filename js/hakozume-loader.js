@@ -82,13 +82,24 @@ showLoadError('模拟器模块已下载但初始化失败，请重试或刷新�
 return;
 }
 try {
-if (taProfile && typeof window.hzPanel.setParams === 'function') {
-window.hzPanel.setParams({
-nameA: taProfile.name || 'TA',
-genderA: taProfile.gender || 'male',
-heightA: taProfile.height || 175,
-colorA: taProfile.color || '#FF6B6B',
-});
+const params = {};
+if (taProfile) {
+params.nameA = taProfile.name || 'TA';
+params.genderA = taProfile.gender || 'male';
+params.heightA = taProfile.height || 175;
+params.colorA = taProfile.color || '#FF6B6B';
+}
+if (typeof window.readMeBodyProfile === 'function') {
+const me = window.readMeBodyProfile();
+if (me) {
+params.nameB = me.name;
+params.genderB = me.gender;
+params.heightB = me.height;
+params.colorB = me.color;
+}
+}
+if (Object.keys(params).length && typeof window.hzPanel.setParams === 'function') {
+window.hzPanel.setParams(params);
 }
 window.hzPanel.open();
 } catch (e) {
@@ -143,6 +154,23 @@ const color = /^#[0-9a-f]{6}$/i.test(String(p.color || '')) ? p.color : TA_PROFI
 return { name: name, gender: gender, height: height, color: color };
 } catch (e) {
 return Object.assign({}, TA_PROFILE_DEFAULT);
+}
+};
+const ME_PROFILE_DEFAULT = { name: '我', gender: 'male', height: 171.5, color: '#FFAD60' };
+window.readMeBodyProfile = function () {
+try {
+const s = taProfileStore();
+if (!s) return null;
+let raw = s.get('me-body-profile');
+if (typeof raw === 'string') { try { raw = JSON.parse(raw); } catch (e) { raw = null; } }
+if (!raw || typeof raw !== 'object') return null;
+const name = raw.name || s.get('cs-lbl-user') || s.get('lbl-user') || ME_PROFILE_DEFAULT.name;
+const gender = (raw.gender === 'male' || raw.gender === 'female') ? raw.gender : ME_PROFILE_DEFAULT.gender;
+const height = Number(raw.height) > 0 ? Number(raw.height) : ME_PROFILE_DEFAULT.height;
+const color = /^#[0-9a-f]{6}$/i.test(String(raw.color || '')) ? raw.color : ME_PROFILE_DEFAULT.color;
+return { name: name, gender: gender, height: height, color: color };
+} catch (e) {
+return null;
 }
 };
 if (window.__mochiLoaded) window.__mochiLoaded.push("hakozume-loader.js");

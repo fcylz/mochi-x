@@ -6818,7 +6818,7 @@ html.splash-skip #splash{display:none!important}
           <button class="more-tab sel" type="button" data-mcat="chat">互动</button>
           <button class="more-tab" type="button" data-mcat="tool">工具</button>
           <button class="more-tab" type="button" data-mcat="game">小游戏</button>
-          <button class="more-tab" type="button" data-mcat="ask">TA的提问</button>
+          <button class="more-tab" type="button" data-mcat="ask">彼此的提问</button>
           <button class="gc-more-at-top" id="gc-more-at" title="@群成员" hidden>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 006 0v-1a10 10 0 10-20 0v1a10 10 0 0010 10"/></svg>@群成员
           </button>
@@ -6941,6 +6941,12 @@ html.splash-skip #splash{display:none!important}
           </button>
         </div>
         <div class="more-grid" id="more-grid-ask" hidden>
+          <!-- 「彼此的提问」：我 → TA 的提问入口（一次最多 5 题，单选/判断/多选/开放回答），
+               与下方 8 枚「让 TA 问我」的入口并列存在于同一分类 -->
+          <button class="more-item" id="more-me-ask" title="我来提问（一次最多5题，发送后 TA 会逐题作答）">
+            <span class="mi-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 01-9 8.4 9.9 9.9 0 01-3.6-.6L3 21l1.7-4.8a8.2 8.2 0 01-.7-3.3A8.4 8.4 0 0112.4 3a8.4 8.4 0 018.6 8.5z"/><path d="M9.6 9.5a2.4 2.4 0 114.8.4c0 1.7-2.4 2.1-2.4 3.3"/><path d="M12 16.4h.01"/></svg></span>
+            <span>我来提问</span>
+          </button>
           <button class="more-item" id="more-ask-now" title="让TA现在问一次（TA的询问）">
             <span class="mi-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
             <span>询问</span>
@@ -6978,6 +6984,23 @@ html.splash-skip #splash{display:none!important}
           </button>
         </div>
       </div>
+
+    <!-- 「我来提问」多题弹窗（聊天「+」→ 彼此的提问 → 我来提问）
+         必须放在所有 .page 之外：absolute 弹层若嵌在 .page 内，切页时会被父级 hidden 连带隐藏。
+         结构＝白底卡片 + 题块容器（题块由 chat.js 的 meAskAppendBlock() 动态生成，
+         不 cloneNode 已转换的输入框——mobile-adapt 会把 textarea/input 转成 .ce-box） -->
+    <div class="modal-mask" id="me-ask-mask" hidden>
+      <div class="modal mqa-modal" id="me-ask-box">
+        <div class="mqa-head">
+          <span class="mqa-title">问题 · 最多5题</span>
+          <button class="mqa-close" type="button" id="me-ask-close" aria-label="关闭" title="关闭">✕</button>
+        </div>
+        <div class="mqa-list" id="me-ask-list"></div>
+        <button class="mqa-add-q" type="button" id="me-ask-add-q">＋ 添加问题</button>
+        <div class="mqa-hint">按顺序排列，填写后一次发送。</div>
+        <button class="mqa-send" type="button" id="me-ask-send">发送</button>
+      </div>
+    </div>
 
     <!-- TA在身边·位置面板（聊天寻踪半框 / 桌面寻踪页「TA在身边」入口共用，必须放在所有 .page 之外——
          position:fixed 弹层若嵌在 .page 内，页面切换时会被父级 hidden 隐藏，桌面寻踪页点开就会"跑到聊天页"；

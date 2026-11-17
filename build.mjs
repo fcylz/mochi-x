@@ -431,6 +431,21 @@ const FIX_SENTINELS = [
   { name: 'hakozume-f TA 身体数据写入入口（删＝ta-body-profile 永远没有写入方，TA 恒为默认 175/男）', file: 'js/hakozume-panel.js', needle: "s.set('ta-body-profile'" },
   { name: 'hakozume-g 导出表清除未定义常量（改回 ANA_DIMS/FAMILY_NAMES_LOCKER＝Object.assign 整体抛 ReferenceError，engine 全部导出失效，白屏复发）', file: 'js/hakozume-engine.js', needle: 'ANA_DIMS', absent: true },
   { name: 'hakozume-h 切换视角 crosshair 判空（删＝第一人称准星元素缺失时 switchView 抛 TypeError，视角按钮点了报错）', file: 'js/hakozume-panel.js', needle: "const ch = document.getElementById('crosshair')" },
+  // ==== 2026-11-17 装箱面板双方档案：此前只有 A 组（TA）能「记住」，B 组（我）的姓名/性别/身高/颜色
+  //   关掉面板或换设备就回到默认值。B 组补独立存储键 me-body-profile，与 ta-body-profile 同域
+  //   （activeStore，按联系人隔离），打开面板时由 loader 的 readMeBodyProfile 回填。
+  { name: 'hakozume-i 「我」身体数据写入入口（删＝me-body-profile 永远没有写入方，B 组的名字/性别/身高/颜色恒为面板默认值）', file: 'js/hakozume-panel.js', needle: "s.set('me-body-profile'" },
+  // ==== 2026-11-17 彼此的提问（用户直派「【TA的提问】改为【彼此的提问】，用户也可以对TA提问」）：
+  //   「+」面板该分类改名 + 新增「我来提问」多题弹窗（最多5题，单选/判断/多选/开放回答）。
+  //   我发出的每题是 special:'me-ask' 的我方卡，TA 逐题答并在卡上写「对方的回答：X」。
+  { name: 'chat-mqa 分类入口（删＝「彼此的提问」里没有「我来提问」，弹窗无触发方）', file: 'js/chat.js', needle: "bindTaNow('more-me-ask'" },
+  { name: 'chat-mqa 提问卡渲染分支（删＝我发出的题卡回退成纯文字气泡，题型/选项/对方的回答全看不见）', file: 'js/chat.js', needle: "rec.special === 'me-ask'" },
+  { name: 'chat-mqa 待答卡立刻落盘登记（删＝发完还没答的题卡在刷新后被当成不存在，与卡一起消失）', file: 'js/chat.js', needle: "'me-ask': 'maStatus'" },
+  { name: 'chat-mqa 多题弹窗结构（删＝点「我来提问」找不到 #me-ask-mask，只弹一句面板没加载好）', file: 'index.html', needle: 'id="me-ask-mask"' },
+  // 用户实报「发送出来的选项都自动重复了」：mobile-adapt 的 ce-box 是
+  // `box.className='ce-box ' + origClass`，会继承 .mqa-opt-input；裸类选择器把
+  // ghost input 与可见 ce-box 都命中，同一格读两遍 ⇒ 每格选项成双、判断题预填也失效。
+  { name: 'chat-mqa 选项只认 input.mqa-opt-input（改回裸类选择器＝ce-box 一起命中，选项重复/预填失效复发）', file: 'js/chat.js', needle: "querySelectorAll('input.mqa-opt-input')" },
   // ==== 2026-10-16 #1567（作者直派「点【折叠公告】后每次重开网站都保存这个状态，不用重复点折叠/展开」＋折叠视图只留
   //   「免费·署名·防倒卖」「使用前提」「免责声明」三张卡与品牌卡）:折叠偏好落 xy-home-v2:splash-folded 根键（按设备、
   //   不随联系人），开屏按 ageOk 回填（声明改版需重新勾选时保持全文展开）；折叠时收起顶卡/公告已精简条/备份/

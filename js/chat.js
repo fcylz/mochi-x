@@ -1159,6 +1159,7 @@ else if (sp === 'ask-choose') extra = String(m.choiceQuestion || '') + '|' + JSO
 else if (sp === 'ask-curious') extra = String(m.curiousQuestion || '') + '|' + JSON.stringify(m.curiousQuick || []) + '|' + String(m.curiousCat || '');
 else if (sp === 'ask-roast') extra = String(m.roastText || '') + '|' + String(m.roastCat || '');
 else if (sp === 'invite') extra = String(m.inviteContent || m.text || '');
+else if (sp === 'me-ask') extra = String(m.maText || '') + '|' + String(m.maType || '') + '|' + JSON.stringify(m.maOptions || []) + '|' + String(m.ts || '');
 else if (sp === 'gift') extra = String(m.giftId || '') + '|' + String(m.giftName || '') + '|' + String(m.giftEmoji || '') + '|' + String(m.giftWish || '') + '|' + String(m.giftPrice == null ? '' : m.giftPrice); // FIX 2026-09-12 #379 礼物签名误用鲜花字段（flName/flEmoji/flWish 礼物记录里全 undefined）→ 任意两件礼物签名恒等，60s 窗口内第二件被当重复删＝「连续送心愿单礼物第一件之外全闪一下就消失」；改用礼物自己的字段（dish 菜肴同理），不同礼物签名必然不同
 else if (sp === 'dish') extra = String(m.dishName || '') + '|' + String(m.dishEmoji || '') + '|' + String(m.dishWish || '') + '|' + String(m.dishPrice == null ? '' : m.dishPrice); // FIX #379 同上：菜肴消息字段与鲜花不同，此前也恒等签名
 else if (sp === 'flower') extra = String(m.flName || '') + '|' + String(m.flEmoji || '') + '|' + String(m.flWish || '');
@@ -4316,6 +4317,35 @@ if (acts) acts.outerHTML = wishDoneHtml();
 } catch (e) {}
 }
 window.chatWishSettled = chatWishSettled;
+const ME_ASK_TYPE_LABEL = { single: '单选', judge: '判断', multi: '多选', open: '开放回答' };
+function meAskTypeLabel(t) { return ME_ASK_TYPE_LABEL[t] || '单选'; }
+function meAskCardHtml(rec) {
+const opts = Array.isArray(rec.maOptions) ? rec.maOptions : [];
+const picked = Array.isArray(rec.maPicked) ? rec.maPicked : [];
+let optsHtml = '';
+if (opts.length) {
+optsHtml = '<div class="mqa-opts">' + opts.map(function (o, i) {
+const on = picked.indexOf(i) >= 0 ? ' on' : '';
+const label = (o && typeof o === 'object') ? (o.t || '') : o;
+return '<div class="mqa-opt-row' + on + '"><span class="mqa-dot"></span><span>' + escTxt(label) + '</span></div>';
+}).join('') + '</div>';
+}
+const ansHtml = rec.maStatus === 'answered'
+? '<div class="mqa-ans">对方的回答：<b>' + escTxt(rec.maAnswer || '…') + '</b></div>'
+: '<div class="mqa-ans">等待对方的回答…</div>';
+return '<div class="mqa-card">' +
+'<span class="mqa-tag">' + escTxt(meAskTypeLabel(rec.maType)) + '</span>' +
+'<div class="mqa-q-text">' + escTxt(rec.maText || rec.text || '') + '</div>' +
+optsHtml + ansHtml + '</div>';
+}
+function meAskPaint(b, rec) {
+if (!b) return;
+b.style.padding = '0';
+b.style.background = 'transparent';
+b.style.border = '0';
+b.style.boxShadow = 'none';
+b.innerHTML = meAskCardHtml(rec);
+}
 function renderMsg(rec, atIdx) {
 const m = document.createElement('div');
 m.dataset.mk = msgKeyOf(rec); // FIX 2026-09-15 #491 身份锚随渲染写入，批量渲染只覆盖 data-idx 不动它
@@ -4668,6 +4698,8 @@ m.dataset.pendingRead = '1';
 b.dataset.orig = rec.orig || retractSafeHtml(rec); // FIX #572d：仍是「快照优先」，无快照才走安全兜底（不再裸直出 rec.text）
 b.innerHTML = '<span style="opacity:.6;font-size:12px;cursor:pointer">' + (rec.side === 'out' ? '我' : '对方') + '撤回了一条消息</span>';
 bindToggle(b, rec.side);
+} else if (rec.special === 'me-ask') {
+meAskPaint(b, rec);
 } else if (rec.type === 'sticker' || rec.type === 'image') {
 b.style.padding = '6px';
 b.style.background = '';
@@ -5214,7 +5246,8 @@ if (window.nightModeActive && window.nightModeActive()) window.__nightReplyOpen 
 }
 const PENDING_CARD_STATUS_FIELD = {
 'ask-card': 'askStatus', ask: 'askStatus', 'ask-choose': 'choiceStatus', 'ask-curious': 'curiousStatus',
-'ask-roast': 'roastStatus', invite: 'inviteStatus', survey: 'surveyStatus', redpacket: 'rpStatus'
+'ask-roast': 'roastStatus', invite: 'inviteStatus', survey: 'surveyStatus', redpacket: 'rpStatus',
+'me-ask': 'maStatus' // 我发起、等 TA 逐题作答的卡：未答前同样必须立刻整包落盘，否则刷新手答题卡与卡一起消失
 };
 const PENDING_CARD_SETTLED = { answered: 1, done: 1, received: 1, expired: 1, returned: 1 };
 function isPendingCardRec(rec) {
@@ -8694,6 +8727,7 @@ if (fn) fn();
 });
 }
 }
+bindTaNow('more-me-ask', () => { openMeAskComposer(); });
 bindTaNow('more-ask-now', () => { if (window.triggerTaAskNow) window.triggerTaAskNow(); });
 bindTaNow('more-choose-now', () => { if (window.triggerTaChooseNow) window.triggerTaChooseNow(); });
 bindTaNow('more-curious-now', () => { if (window.triggerTaCuriousNow) window.triggerTaCuriousNow(); });
@@ -9199,6 +9233,256 @@ setTimeout(() => { if (!sameCid()) return; maybeFollowupAskCard(); }, 1200);
 applyInviteResult();
 }, 1500 + Math.random() * 2500);
 }
+const ME_ASK_MAX_Q = 5;
+const ME_ASK_MAX_OPT = 8;
+const ME_ASK_TYPE_KEYS = ['single', 'judge', 'multi', 'open'];
+const meAskMask = document.getElementById('me-ask-mask');
+const meAskListEl = document.getElementById('me-ask-list');
+let meAskOpenedAt = 0; // 同一手势的点击穿透兜底（打开那一刻的点击不算点外关闭）
+function meAskOptRowHtml(no) {
+return '<div class="mqa-opt"><span class="mqa-opt-no">' + no + '</span>' +
+'<input class="mqa-opt-input" type="text" placeholder="选项 ' + no + '"></div>';
+}
+function meAskBlockHtml() {
+return '<div class="mqa-q" data-type="single">' +
+'<div class="mqa-q-no">第1题</div>' +
+'<div class="mqa-types">' +
+'<button class="mqa-type sel" type="button" data-type="single">单选</button>' +
+'<button class="mqa-type" type="button" data-type="judge">判断</button>' +
+'<button class="mqa-type" type="button" data-type="multi">多选</button>' +
+'<button class="mqa-type" type="button" data-type="open">开放回答</button>' +
+'</div>' +
+'<textarea class="mqa-text" rows="2" placeholder="想问什么？"></textarea>' +
+'<div class="mqa-opts">' + meAskOptRowHtml(1) + meAskOptRowHtml(2) + '</div>' +
+'<button class="mqa-add-opt" type="button">＋ 添加选项</button>' +
+'<button class="mqa-del-q" type="button" hidden>删除本题</button>' +
+'</div>';
+}
+function meAskPrefillJudge(block) {
+const inputs = block.querySelectorAll('input.mqa-opt-input');
+if (inputs.length !== 2) return;
+if (!meAskFieldVal(inputs[0]).trim()) inputs[0].value = '是';
+if (!meAskFieldVal(inputs[1]).trim()) inputs[1].value = '否';
+}
+function meAskSyncBlock(block) {
+if (!block) return;
+const type = ME_ASK_TYPE_KEYS.indexOf(block.dataset.type) >= 0 ? block.dataset.type : 'single';
+const needOpts = type !== 'open';
+const opts = block.querySelector('.mqa-opts');
+const addOpt = block.querySelector('.mqa-add-opt');
+if (opts) opts.hidden = !needOpts;
+if (addOpt) addOpt.hidden = !needOpts;
+if (type === 'judge') meAskPrefillJudge(block);
+block.querySelectorAll('.mqa-type').forEach(function (btn) {
+btn.classList.toggle('sel', btn.dataset.type === type);
+});
+}
+function meAskRenumber() {
+if (!meAskListEl) return;
+const blocks = meAskListEl.querySelectorAll('.mqa-q');
+blocks.forEach(function (block, i) {
+const no = block.querySelector('.mqa-q-no');
+if (no) no.textContent = '第' + (i + 1) + '题';
+const del = block.querySelector('.mqa-del-q');
+if (del) del.hidden = blocks.length <= 1;
+});
+const addQ = document.getElementById('me-ask-add-q');
+if (addQ) {
+const full = blocks.length >= ME_ASK_MAX_Q;
+addQ.disabled = full;
+addQ.textContent = full ? '已达 5 题上限' : '＋ 添加问题';
+addQ.style.opacity = full ? '.55' : '';
+}
+}
+function meAskAppendBlock() {
+if (!meAskListEl) return null;
+if (meAskListEl.querySelectorAll('.mqa-q').length >= ME_ASK_MAX_Q) return null;
+const wrap = document.createElement('div');
+wrap.innerHTML = meAskBlockHtml();
+const block = wrap.firstElementChild;
+meAskListEl.appendChild(block);
+meAskSyncBlock(block);
+meAskRenumber();
+return block;
+}
+function openMeAskComposer() {
+if (!meAskMask || !meAskListEl) { toast('提问面板还没加载好'); return; }
+meAskListEl.innerHTML = '';
+meAskAppendBlock();
+meAskOpenedAt = Date.now();
+meAskMask.hidden = false;
+try { const ta = meAskListEl.querySelector('.mqa-text'); if (ta) ta.focus(); } catch (e) {}
+}
+function closeMeAskComposer() {
+if (meAskMask) meAskMask.hidden = true;
+if (meAskListEl) meAskListEl.innerHTML = ''; // 草稿只活在弹窗里，关掉即清，避免下次打开残留半截文字
+try { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); } catch (e) {}
+if (window.mochiKbDismiss) { try { window.mochiKbDismiss(); } catch (e) {} }
+}
+window.openMeAskComposer = openMeAskComposer;
+window.closeMeAskComposer = closeMeAskComposer;
+function meAskFieldVal(el) { return el ? String(el.value == null ? '' : el.value) : ''; }
+function meAskReadBlock(block) {
+const type = ME_ASK_TYPE_KEYS.indexOf(block.dataset.type) >= 0 ? block.dataset.type : 'single';
+const text = meAskFieldVal(block.querySelector('.mqa-text')).trim();
+const options = [];
+if (type !== 'open') {
+block.querySelectorAll('input.mqa-opt-input').forEach(function (inp) {
+const v = meAskFieldVal(inp).trim();
+if (v) options.push({ t: v });
+});
+}
+return { type: type, text: text, options: options };
+}
+function meAskCollect() {
+const blocks = meAskListEl ? Array.prototype.slice.call(meAskListEl.querySelectorAll('.mqa-q')) : [];
+if (!blocks.length) return { err: '先添加一个问题' };
+const qs = [];
+for (let i = 0; i < blocks.length; i++) {
+const v = meAskReadBlock(blocks[i]);
+if (!v.text) return { err: '第' + (i + 1) + '题还没填问题' };
+if (v.type !== 'open' && v.options.length < 2) return { err: '第' + (i + 1) + '题至少填 2 个选项' };
+qs.push(v);
+}
+return { qs: qs };
+}
+function meAskPickAnswer(q) {
+const opts = q.options || [];
+if (q.type === 'judge' || q.type === 'single') {
+if (!opts.length) return { text: '嗯', picked: [] };
+const k = Math.floor(Math.random() * opts.length);
+return { text: String((opts[k] || {}).t || ''), picked: [k] };
+}
+if (q.type === 'multi') {
+if (!opts.length) return { text: '嗯', picked: [] };
+const picked = mochiPickMulti(opts.length, askMultiMaxLoad());
+return { text: picked.map(function (k) { return String((opts[k] || {}).t || ''); }).join('、'), picked: picked };
+}
+const defs = window.getInteractPool
+? window.getInteractPool('彼此的提问·回应', ['让我想想…', '嗯，我认真想过了', '这个问题问得好', '我陪着你', '我看行', '当然可以', '你希望我怎么回答呢', '嗯…应该是吧'])
+: ['让我想想…', '嗯，我认真想过了', '这个问题问得好', '我陪着你', '我看行', '当然可以', '你希望我怎么回答呢', '嗯…应该是吧'];
+const say = window.pickAskCardReply ? window.pickAskCardReply(defs) : defs[Math.floor(Math.random() * defs.length)];
+return { text: say, picked: [] };
+}
+function meAskSend() {
+const got = meAskCollect();
+if (got.err) { toast(got.err); return; }
+const qs = got.qs;
+const answers = qs.map(meAskPickAnswer);
+closeMeAskComposer();
+const myCid = window.__activeCid || 'default';
+const sameCid = function () { return (window.__activeCid || 'default') === myCid; };
+const baseTs = Date.now();
+const tss = [];
+qs.forEach(function (q, i) {
+const rec = addRec({
+side: 'out',
+text: q.text,
+special: 'me-ask',
+maType: q.type,
+maText: q.text,
+maOptions: q.options,
+maStatus: 'pending',
+ts: baseTs + i,
+dedupExempt: true
+});
+tss.push(rec && rec.ts ? rec.ts : 0);
+});
+if (!tss.length) return;
+const thinkMs = askThinkSecsLoad() * 1000;
+qs.forEach(function (q, i) {
+const recTs = tss[i];
+const ans = answers[i];
+if (!recTs || !ans) return;
+setTimeout(function () {
+const locate = function () {
+for (let k = msgs.length - 1; k >= 0; k--) {
+const r = msgs[k];
+if (r && r.special === 'me-ask' && r.ts === recTs) return k;
+}
+return -1;
+};
+function applyMeAskAnswer() {
+const idx = locate();
+const rec = idx >= 0 ? msgs[idx] : null;
+if (rec) {
+rec.maStatus = 'answered';
+rec.maAnswer = ans.text;
+rec.maPicked = ans.picked || [];
+saveMsgs();
+saveMsgsNow(); // 回答即落盘（同 #489 先例）
+const el = body.querySelector('.msg[data-idx="' + idx + '"]');
+if (el) meAskPaint(el.querySelector('.msg-bubble'), rec);
+}
+addInTyped(ans.text);
+try {
+const list = JSON.parse(store.get('invite-ask-history') || '[]');
+if (!list.some(function (x) { return x && x.ts === recTs; })) {
+list.unshift({ type: 'ask', q: q.text, a: ans.text, ts: recTs });
+if (list.length > 200) list.length = 200;
+store.set('invite-ask-history', JSON.stringify(list));
+}
+} catch (err) {}
+if (window.renderAskRecords) window.renderAskRecords();
+}
+if (!sameCid()) {
+window.chatDeskCardReply(myCid, 'me-ask', recTs, 'maStatus', function (rec) {
+rec.maStatus = 'answered';
+rec.maAnswer = ans.text;
+rec.maPicked = ans.picked || [];
+}, [{ side: 'in', text: ans.text }], applyMeAskAnswer);
+try { window.chatDeskHistPush(myCid, { type: 'ask', q: q.text, a: ans.text, ts: recTs }); } catch (err) {}
+return;
+}
+applyMeAskAnswer();
+}, thinkMs + i * 1200);
+});
+}
+if (meAskListEl) {
+meAskListEl.addEventListener('click', function (e) {
+const t = e.target;
+if (!t || !t.closest) return;
+const typeBtn = t.closest('.mqa-type');
+if (typeBtn) {
+const block = typeBtn.closest('.mqa-q');
+if (block) { block.dataset.type = typeBtn.dataset.type || 'single'; meAskSyncBlock(block); }
+return;
+}
+const addOpt = t.closest('.mqa-add-opt');
+if (addOpt) {
+const block = addOpt.closest('.mqa-q');
+const opts = block && block.querySelector('.mqa-opts');
+if (!opts) return;
+const n = opts.querySelectorAll('.mqa-opt').length;
+if (n >= ME_ASK_MAX_OPT) { toast('一道题最多 ' + ME_ASK_MAX_OPT + ' 个选项'); return; }
+const wrap = document.createElement('div');
+wrap.innerHTML = meAskOptRowHtml(n + 1);
+opts.appendChild(wrap.firstElementChild);
+return;
+}
+const del = t.closest('.mqa-del-q');
+if (del) {
+const block = del.closest('.mqa-q');
+if (block && meAskListEl.querySelectorAll('.mqa-q').length > 1) {
+block.remove();
+meAskRenumber();
+}
+}
+});
+}
+if (meAskMask) {
+meAskMask.addEventListener('click', function (e) {
+if (e.target === meAskMask && Date.now() - meAskOpenedAt > 300) closeMeAskComposer();
+});
+}
+(function () {
+const addQ = document.getElementById('me-ask-add-q');
+if (addQ) addQ.addEventListener('click', function () { meAskAppendBlock(); });
+const closeBtn = document.getElementById('me-ask-close');
+if (closeBtn) closeBtn.addEventListener('click', function () { closeMeAskComposer(); });
+const sendBtn = document.getElementById('me-ask-send');
+if (sendBtn) sendBtn.addEventListener('click', function () { meAskSend(); });
+})();
 const IH_PAGE_DAYS = 5;
 let ihPastShown = IH_PAGE_DAYS; // 已露出的「更早」日期组数（不含今天）
 const ihOpenDays = {};          // 手动展开的更早日期组（key = 年-月-日）

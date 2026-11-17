@@ -51,6 +51,9 @@ const _panelHTML = `
           <div class="input-item"><span class="hint">身高 (cm)</span><input type="number" id="heightB" value="171.5" step="0.1" oninput="updateScene()"></div>
           <div class="input-item" style="flex: 0.35;"><span class="hint">颜色</span><input type="color" id="colorB" class="color-picker" value="#ffad60" oninput="updateScene()"></div>
         </div>
+        <div class="input-row">
+          <button class="switch-btn hz-save-me" id="hz-save-me" onclick="saveMeProfile()">💾 记住我的身体数据</button>
+        </div>
         </div>
       </div>
       <div class="input-group group-layout">
@@ -173,13 +176,16 @@ Object.assign(window, {
   stepScan: stepScan,
   renderInfo: renderInfo,
   saveTaProfile: saveTaProfile,
+  saveMeProfile: saveMeProfile,
   hzUserSwap: hzUserSwap,
   toggleNameGroup: toggleNameGroup
 });
 
-// ===== 记住 TA 的身体数据 =====
+// ===== 记住双方的身体数据 =====
 // A 组语义就是 TA：写入当前联系人的 ta-body-profile（与 loader 的 readTaBodyProfile
 // 同一存储键），下次进入自动带出；按联系人隔离，不碰联系人姓名/称呼键。
+// B 组是「我」：写入 me-body-profile（与 loader 的 readMeBodyProfile 同一存储键），
+// 与 TA 档案同域（都按联系人隔离），两组各自记住、互不覆盖。
 function taProfileStore() {
   try {
     if (typeof window.activeStore === 'function') {
@@ -194,11 +200,33 @@ function taProfileStore() {
   return null;
 }
 
+// 两组「已记住 / 未记住」的按钮文案（A＝TA，B＝我）
+const HZ_SAVE_TEXT = {
+  A: { off: '💾 记住 TA 的身体数据', on: '✅ 已记住 TA 的身体数据', done: '已记住 TA 的身体数据' },
+  B: { off: '💾 记住我的身体数据', on: '✅ 已记住我的身体数据', done: '已记住我的身体数据' }
+};
+
 function markTaSaved(saved) {
-  const btn = document.getElementById('hz-save-ta');
+  markBodySaved('A', saved);
+}
+
+function markBodySaved(side, saved) {
+  const btn = document.getElementById(side === 'B' ? 'hz-save-me' : 'hz-save-ta');
   if (!btn) return;
-  btn.textContent = saved ? '✅ 已记住 TA 的身体数据' : '💾 记住 TA 的身体数据';
+  const t = HZ_SAVE_TEXT[side] || HZ_SAVE_TEXT.A;
+  btn.textContent = saved ? t.on : t.off;
   btn.classList.toggle('is-saved', !!saved);
+}
+
+// 读当前面板里某一组的姓名・性别・身高・颜色
+function readBodyFields(side) {
+  const isA = side !== 'B';
+  return {
+    name: document.getElementById('name' + side).value || (isA ? 'TA' : '我'),
+    gender: document.getElementById('gender' + side).value || 'male',
+    height: parseFloat(document.getElementById('height' + side).value) || (isA ? 175 : 171.5),
+    color: document.getElementById('color' + side).value || (isA ? '#FF6B6B' : '#FFAD60')
+  };
 }
 
 function saveTaProfile() {
@@ -207,16 +235,24 @@ function saveTaProfile() {
     if (!s) { if (window.toast) window.toast('当前环境无法保存'); return; }
     // xyStore 按字符串存取（localStorage.setItem(key, v) 不做序列化）——直接传对象
     // 会存成 "[object Object]"，刷新后读回来解析不出来，档案等于没保存。
-    s.set('ta-body-profile', JSON.stringify({
-      name: document.getElementById('nameA').value || 'TA',
-      gender: document.getElementById('genderA').value || 'male',
-      height: parseFloat(document.getElementById('heightA').value) || 175,
-      color: document.getElementById('colorA').value || '#FF6B6B'
-    }));
+    s.set('ta-body-profile', JSON.stringify(readBodyFields('A')));
     markTaSaved(true);
-    if (window.toast) window.toast('已记住 TA 的身体数据');
+    if (window.toast) window.toast(HZ_SAVE_TEXT.A.done);
   } catch (e) {
     console.error('保存 TA 身体数据失败:', e);
+    if (window.toast) window.toast('保存失败，请重试');
+  }
+}
+
+function saveMeProfile() {
+  try {
+    const s = taProfileStore();
+    if (!s) { if (window.toast) window.toast('当前环境无法保存'); return; }
+    s.set('me-body-profile', JSON.stringify(readBodyFields('B')));
+    markBodySaved('B', true);
+    if (window.toast) window.toast(HZ_SAVE_TEXT.B.done);
+  } catch (e) {
+    console.error('保存我的身体数据失败:', e);
     if (window.toast) window.toast('保存失败，请重试');
   }
 }
@@ -1136,18 +1172,24 @@ window.hzPanel = {
   
   open: function(params) {
     _ensureDOM();
-    // 如果有参数，先设置 A 组
+    // 如果有参数，先设置 A 组（TA）与 B 组（我）
     if (params) {
       if (params.nameA !== undefined) document.getElementById('nameA').value = params.nameA;
       if (params.genderA !== undefined) document.getElementById('genderA').value = params.genderA;
       if (params.heightA !== undefined) document.getElementById('heightA').value = params.heightA;
       if (params.colorA !== undefined) document.getElementById('colorA').value = params.colorA;
+      if (params.nameB !== undefined) document.getElementById('nameB').value = params.nameB;
+      if (params.genderB !== undefined) document.getElementById('genderB').value = params.genderB;
+      if (params.heightB !== undefined) document.getElementById('heightB').value = params.heightB;
+      if (params.colorB !== undefined) document.getElementById('colorB').value = params.colorB;
     }
     
-    // 已有档案时把按钮显示成「已记住」
+    // 已有档案时把按钮显示成「已记住」（A / B 各自判各自那份档案）
     try {
       const s = taProfileStore();
-      markTaSaved(!!(s && typeof s.get === 'function' && s.get('ta-body-profile')));
+      const has = function (k) { return !!(s && typeof s.get === 'function' && s.get(k)); };
+      markTaSaved(has('ta-body-profile'));
+      markBodySaved('B', has('me-body-profile'));
     } catch (e) {}
 
     document.getElementById('hakozume-root').style.display = 'block';
@@ -1192,10 +1234,18 @@ window.hzPanel = {
   setParams: function(p) {
     _ensureDOM();
     let changed = false;
-    if (p.nameA !== undefined && document.getElementById('nameA').value !== p.nameA) { document.getElementById('nameA').value = p.nameA; changed = true; }
-    if (p.genderA !== undefined && document.getElementById('genderA').value !== p.genderA) { document.getElementById('genderA').value = p.genderA; changed = true; }
-    if (p.heightA !== undefined && document.getElementById('heightA').value != p.heightA) { document.getElementById('heightA').value = p.heightA; changed = true; }
-    if (p.colorA !== undefined && document.getElementById('colorA').value !== p.colorA) { document.getElementById('colorA').value = p.colorA; changed = true; }
+    // A＝TA、B＝我：两组同规格写入（数值字段用 == 容忍 158 与 "158.0" 的差异）
+    const apply = function (id, v, numeric) {
+      if (v === undefined) return;
+      const el = document.getElementById(id);
+      if (!el) return;
+      const same = numeric ? el.value == v : el.value === v;
+      if (same) return;
+      el.value = v;
+      changed = true;
+    };
+    apply('nameA', p.nameA); apply('genderA', p.genderA); apply('heightA', p.heightA, true); apply('colorA', p.colorA);
+    apply('nameB', p.nameB); apply('genderB', p.genderB); apply('heightB', p.heightB, true); apply('colorB', p.colorB);
     // 面板尚未初始化时（scene/walkGroup 还没建）只写 DOM 值，
     // 由随后的 open() → init() 读 DOM 完成首帧，避免 updateScene 崩在 undefined 上
     if (changed && _initialized && typeof window.updateScene === 'function') window.updateScene();

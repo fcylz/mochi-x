@@ -105,13 +105,25 @@ window.hakozumeApi = {
       return;
     }
     try {
-      if (taProfile && typeof window.hzPanel.setParams === 'function') {
-        window.hzPanel.setParams({
-          nameA: taProfile.name || 'TA',
-          genderA: taProfile.gender || 'male',
-          heightA: taProfile.height || 175,
-          colorA: taProfile.color || '#FF6B6B',
-        });
+      // A 组＝TA（外部传入 / ta-body-profile），B 组＝我（me-body-profile，只有存过才覆盖）
+      const params = {};
+      if (taProfile) {
+        params.nameA = taProfile.name || 'TA';
+        params.genderA = taProfile.gender || 'male';
+        params.heightA = taProfile.height || 175;
+        params.colorA = taProfile.color || '#FF6B6B';
+      }
+      if (typeof window.readMeBodyProfile === 'function') {
+        const me = window.readMeBodyProfile();
+        if (me) {
+          params.nameB = me.name;
+          params.genderB = me.gender;
+          params.heightB = me.height;
+          params.colorB = me.color;
+        }
+      }
+      if (Object.keys(params).length && typeof window.hzPanel.setParams === 'function') {
+        window.hzPanel.setParams(params);
       }
       window.hzPanel.open();
     } catch (e) {
@@ -181,5 +193,30 @@ window.readTaBodyProfile = function () {
     return { name: name, gender: gender, height: height, color: color };
   } catch (e) {
     return Object.assign({}, TA_PROFILE_DEFAULT);
+  }
+};
+
+// ===== 「我」身体档案读取 =====
+// 与 TA 档案同域（activeStore → 按联系人隔离），键为 me-body-profile（面板 B 组
+// 「记住我的身体数据」写入）。与 TA 不同：没存过就返回 null——首次进入不能用默认值
+// 覆盖 B 组（否则会把 simSettings 恢复回来的输入值冲掉）。
+const ME_PROFILE_DEFAULT = { name: '我', gender: 'male', height: 171.5, color: '#FFAD60' };
+
+window.readMeBodyProfile = function () {
+  try {
+    const s = taProfileStore();
+    if (!s) return null;
+    let raw = s.get('me-body-profile');
+    if (typeof raw === 'string') { try { raw = JSON.parse(raw); } catch (e) { raw = null; } }
+    if (!raw || typeof raw !== 'object') return null;
+    const name = raw.name || s.get('cs-lbl-user') || s.get('lbl-user') || ME_PROFILE_DEFAULT.name;
+    // 与 TA 侧同口径：select 的 value 只认 male/female，越界值回落默认
+    const gender = (raw.gender === 'male' || raw.gender === 'female') ? raw.gender : ME_PROFILE_DEFAULT.gender;
+    const height = Number(raw.height) > 0 ? Number(raw.height) : ME_PROFILE_DEFAULT.height;
+    const color = /^#[0-9a-f]{6}$/i.test(String(raw.color || '')) ? raw.color : ME_PROFILE_DEFAULT.color;
+
+    return { name: name, gender: gender, height: height, color: color };
+  } catch (e) {
+    return null;
   }
 };

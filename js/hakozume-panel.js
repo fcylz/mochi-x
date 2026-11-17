@@ -45,6 +45,9 @@ const _panelHTML = `
 <div class="input-item"><span class="hint">身高 (cm)</span><input type="number" id="heightB" value="171.5" step="0.1" oninput="updateScene()"></div>
 <div class="input-item" style="flex: 0.35;"><span class="hint">颜色</span><input type="color" id="colorB" class="color-picker" value="#ffad60" oninput="updateScene()"></div>
 </div>
+<div class="input-row">
+<button class="switch-btn hz-save-me" id="hz-save-me" onclick="saveMeProfile()">💾 记住我的身体数据</button>
+</div>
 </div>
 </div>
 <div class="input-group group-layout">
@@ -151,6 +154,7 @@ stepSolver: stepSolver,
 stepScan: stepScan,
 renderInfo: renderInfo,
 saveTaProfile: saveTaProfile,
+saveMeProfile: saveMeProfile,
 hzUserSwap: hzUserSwap,
 toggleNameGroup: toggleNameGroup
 });
@@ -167,26 +171,50 @@ if (s && typeof s.set === 'function') return s;
 } catch (e) {}
 return null;
 }
+const HZ_SAVE_TEXT = {
+A: { off: '💾 记住 TA 的身体数据', on: '✅ 已记住 TA 的身体数据', done: '已记住 TA 的身体数据' },
+B: { off: '💾 记住我的身体数据', on: '✅ 已记住我的身体数据', done: '已记住我的身体数据' }
+};
 function markTaSaved(saved) {
-const btn = document.getElementById('hz-save-ta');
+markBodySaved('A', saved);
+}
+function markBodySaved(side, saved) {
+const btn = document.getElementById(side === 'B' ? 'hz-save-me' : 'hz-save-ta');
 if (!btn) return;
-btn.textContent = saved ? '✅ 已记住 TA 的身体数据' : '💾 记住 TA 的身体数据';
+const t = HZ_SAVE_TEXT[side] || HZ_SAVE_TEXT.A;
+btn.textContent = saved ? t.on : t.off;
 btn.classList.toggle('is-saved', !!saved);
+}
+function readBodyFields(side) {
+const isA = side !== 'B';
+return {
+name: document.getElementById('name' + side).value || (isA ? 'TA' : '我'),
+gender: document.getElementById('gender' + side).value || 'male',
+height: parseFloat(document.getElementById('height' + side).value) || (isA ? 175 : 171.5),
+color: document.getElementById('color' + side).value || (isA ? '#FF6B6B' : '#FFAD60')
+};
 }
 function saveTaProfile() {
 try {
 const s = taProfileStore();
 if (!s) { if (window.toast) window.toast('当前环境无法保存'); return; }
-s.set('ta-body-profile', JSON.stringify({
-name: document.getElementById('nameA').value || 'TA',
-gender: document.getElementById('genderA').value || 'male',
-height: parseFloat(document.getElementById('heightA').value) || 175,
-color: document.getElementById('colorA').value || '#FF6B6B'
-}));
+s.set('ta-body-profile', JSON.stringify(readBodyFields('A')));
 markTaSaved(true);
-if (window.toast) window.toast('已记住 TA 的身体数据');
+if (window.toast) window.toast(HZ_SAVE_TEXT.A.done);
 } catch (e) {
 console.error('保存 TA 身体数据失败:', e);
+if (window.toast) window.toast('保存失败，请重试');
+}
+}
+function saveMeProfile() {
+try {
+const s = taProfileStore();
+if (!s) { if (window.toast) window.toast('当前环境无法保存'); return; }
+s.set('me-body-profile', JSON.stringify(readBodyFields('B')));
+markBodySaved('B', true);
+if (window.toast) window.toast(HZ_SAVE_TEXT.B.done);
+} catch (e) {
+console.error('保存我的身体数据失败:', e);
 if (window.toast) window.toast('保存失败，请重试');
 }
 }
@@ -976,10 +1004,16 @@ if (params.nameA !== undefined) document.getElementById('nameA').value = params.
 if (params.genderA !== undefined) document.getElementById('genderA').value = params.genderA;
 if (params.heightA !== undefined) document.getElementById('heightA').value = params.heightA;
 if (params.colorA !== undefined) document.getElementById('colorA').value = params.colorA;
+if (params.nameB !== undefined) document.getElementById('nameB').value = params.nameB;
+if (params.genderB !== undefined) document.getElementById('genderB').value = params.genderB;
+if (params.heightB !== undefined) document.getElementById('heightB').value = params.heightB;
+if (params.colorB !== undefined) document.getElementById('colorB').value = params.colorB;
 }
 try {
 const s = taProfileStore();
-markTaSaved(!!(s && typeof s.get === 'function' && s.get('ta-body-profile')));
+const has = function (k) { return !!(s && typeof s.get === 'function' && s.get(k)); };
+markTaSaved(has('ta-body-profile'));
+markBodySaved('B', has('me-body-profile'));
 } catch (e) {}
 document.getElementById('hakozume-root').style.display = 'block';
 this.visible = true;
@@ -1011,10 +1045,17 @@ if (typeof window.updateScene === 'function') window.updateScene();
 setParams: function(p) {
 _ensureDOM();
 let changed = false;
-if (p.nameA !== undefined && document.getElementById('nameA').value !== p.nameA) { document.getElementById('nameA').value = p.nameA; changed = true; }
-if (p.genderA !== undefined && document.getElementById('genderA').value !== p.genderA) { document.getElementById('genderA').value = p.genderA; changed = true; }
-if (p.heightA !== undefined && document.getElementById('heightA').value != p.heightA) { document.getElementById('heightA').value = p.heightA; changed = true; }
-if (p.colorA !== undefined && document.getElementById('colorA').value !== p.colorA) { document.getElementById('colorA').value = p.colorA; changed = true; }
+const apply = function (id, v, numeric) {
+if (v === undefined) return;
+const el = document.getElementById(id);
+if (!el) return;
+const same = numeric ? el.value == v : el.value === v;
+if (same) return;
+el.value = v;
+changed = true;
+};
+apply('nameA', p.nameA); apply('genderA', p.genderA); apply('heightA', p.heightA, true); apply('colorA', p.colorA);
+apply('nameB', p.nameB); apply('genderB', p.genderB); apply('heightB', p.heightB, true); apply('colorB', p.colorB);
 if (changed && _initialized && typeof window.updateScene === 'function') window.updateScene();
 },
 dispose: function() {

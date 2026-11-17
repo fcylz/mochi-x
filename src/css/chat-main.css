@@ -1426,6 +1426,108 @@ html.tablet #page-chat.cs-bg-on > #cs-bg-layer { min-height:100vh; min-height:ma
 .msg-ask-tip { font-size:11px; color:var(--muted); margin-top:8px; }
 .msg-ask-a { font-size:12px; color:#3b7a4e; font-weight:600; margin-top:8px; }
 
+/* ===== 我发起的提问卡（special:'me-ask'，聊天「+」→ 彼此的提问 → 我来提问）=====
+   与我方气泡同列（右侧），气泡本体清空背景后由 .mqa-card 自绘浅紫卡片：
+   题型标签 + 加粗题干 + 选项行（已答项点亮）+「对方的回答：X」。
+   深色覆盖在 dark.css。 */
+.mqa-card {
+  min-width:186px; max-width:100%; box-sizing:border-box;
+  background:#F1ECFA; color:#3B2F55;
+  border:1px solid rgba(156,134,200,.22);
+  border-radius:16px; padding:12px 14px; text-align:left;
+}
+.mqa-tag {
+  display:inline-block; padding:2px 9px; border-radius:99px;
+  background:#E4DAF6; color:#6B5B95;
+  font-size:11px; font-weight:600; line-height:1.7;
+}
+.mqa-q-text { margin-top:8px; font-size:14px; font-weight:700; line-height:1.55; word-break:break-word; }
+.mqa-opts { margin-top:10px; display:flex; flex-direction:column; gap:6px; }
+.mqa-opt-row {
+  display:flex; align-items:center; gap:8px;
+  padding:7px 10px; border-radius:10px;
+  background:rgba(255,255,255,.62); color:#5B5266;
+  font-size:13px; line-height:1.5; word-break:break-word;
+}
+.mqa-opt-row.on { background:rgba(156,134,200,.18); color:#4A3B6B; font-weight:600; }
+.mqa-dot { width:7px; height:7px; border-radius:50%; background:rgba(91,82,102,.3); flex:none; }
+.mqa-opt-row.on .mqa-dot { background:#7259A8; }
+.mqa-ans {
+  margin-top:10px; padding-top:8px; border-top:1px dashed rgba(156,134,200,.38);
+  font-size:12px; color:#7A6B8E;
+}
+.mqa-ans b { font-weight:600; color:#5B4A7A; }
+
+/* ===== 「我来提问」多题弹窗（#me-ask-mask）=====
+   遮罩/卡片复用 .modal-mask / .modal 基座（absolute 锚 .phone、内部可滚），
+   这里只补宽度与题块样式；字体沿用站点 PingFang / 系统字族 */
+#me-ask-mask { --mqa-accent:#9C86C8; --mqa-soft:#E4DAF6; --mqa-ink:#6B5B95; }
+.mqa-modal { width:min(340px, 88vw); padding:16px 16px 14px; }
+.mqa-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+.mqa-title { font-size:15px; font-weight:600; color:var(--ink); }
+.mqa-close {
+  width:32px; height:32px; margin:-4px -6px -4px 0; border:0; border-radius:50%;
+  background:transparent; color:var(--muted); font-size:15px; line-height:1;
+  cursor:pointer; font-family:inherit; -webkit-tap-highlight-color:transparent;
+}
+.mqa-close:active { background:var(--static-bg); }
+.mqa-list { display:flex; flex-direction:column; gap:12px; }
+.mqa-q { padding-bottom:12px; border-bottom:1px solid var(--line); }
+.mqa-q:last-child { padding-bottom:0; border-bottom:0; }
+.mqa-q-no { font-size:13px; font-weight:600; color:var(--mqa-ink); margin-bottom:8px; }
+.mqa-types { display:flex; gap:6px; margin-bottom:8px; }
+.mqa-type {
+  flex:1; min-width:0; padding:7px 0; border-radius:10px;
+  border:1px solid var(--input-border); background:var(--input-bg); color:var(--muted);
+  font-size:12.5px; font-weight:600; font-family:inherit; cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  transition:background .15s, color .15s, border-color .15s;
+}
+.mqa-type.sel { background:var(--mqa-soft); color:var(--mqa-ink); border-color:var(--mqa-accent); }
+.mqa-text {
+  display:block; width:100%; box-sizing:border-box; min-height:54px; resize:vertical;
+  border:1px solid var(--input-border); border-radius:12px; padding:9px 11px;
+  font-size:13.5px; font-family:inherit; line-height:1.55; outline:none;
+  background:var(--input-bg); color:var(--ink);
+}
+.mqa-text:focus { border-color:var(--mqa-accent); }
+.mqa-opts { margin-top:8px; display:flex; flex-direction:column; gap:7px; }
+.mqa-opt { display:flex; align-items:center; gap:8px; }
+.mqa-opt-no { flex:none; width:16px; text-align:center; font-size:12px; color:var(--hint-ink); }
+.mqa-opt-input {
+  flex:1; min-width:0; box-sizing:border-box;
+  border:1px solid var(--input-border); border-radius:10px; padding:8px 10px;
+  font-size:13px; font-family:inherit; outline:none; background:var(--input-bg); color:var(--ink);
+}
+.mqa-opt-input:focus { border-color:var(--mqa-accent); }
+.mqa-add-opt, .mqa-add-q {
+  display:block; width:100%; margin-top:8px; padding:9px 0;
+  border:1px dashed var(--pill-border); border-radius:10px;
+  background:transparent; color:var(--muted);
+  font-size:12.5px; font-weight:600; font-family:inherit; cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  transition:opacity .15s;
+}
+.mqa-add-q { margin-top:12px; }
+.mqa-add-opt:active, .mqa-add-q:active { opacity:.68; }
+.mqa-add-opt[hidden], .mqa-opts[hidden] { display:none; }
+.mqa-del-q {
+  display:block; margin-top:6px; padding:4px 0;
+  border:0; background:transparent; color:var(--danger-ink);
+  font-size:12px; font-family:inherit; cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.mqa-del-q[hidden] { display:none; }
+.mqa-hint { margin:10px 0 8px; font-size:12px; color:var(--hint-ink); line-height:1.6; }
+.mqa-send {
+  display:block; width:100%; padding:11px 0; border:0; border-radius:25px;
+  background:var(--mqa-accent); color:#fff;
+  font-size:14px; font-weight:700; font-family:inherit; cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  transition:transform .15s, opacity .15s;
+}
+.mqa-send:active { transform:scale(.98); opacity:.92; }
+
 /* ===== 批量问卷长卡片（v3.33.x #521 special:'ask-survey'）===== */
 /* 观感严格对齐单题 ask-card（.msg-ask-card：同 max-width/min-width/圆角/内边距/阴影/居中），
    标题对应 msg-ask-q、逐题答案对应 msg-ask-a、底部提示对应 msg-ask-tip；无 emoji、无独立进度徽标。
