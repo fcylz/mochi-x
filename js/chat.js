@@ -1652,6 +1652,7 @@ try { if (window.activePrefix() === myPrefix && window.idbSet) persistChatHistor
 }, 0);
 }
 scheduleDeferredNormalization();
+try { meAskResumePending(); } catch (e) {}
 try { setTimeout(chatColdEnsureHydrated, 2500); } catch (e) {}
 try { scheduleMediaPass(12000); } catch (e) {}
 }); // FIX 2026-09-17 #127：增量日志读取回调收口
@@ -4321,7 +4322,7 @@ const ME_ASK_TYPE_LABEL = { single: '单选', judge: '判断', multi: '多选', 
 function meAskTypeLabel(t) { return ME_ASK_TYPE_LABEL[t] || '单选'; }
 function meAskCardHtml(rec) {
 const opts = Array.isArray(rec.maOptions) ? rec.maOptions : [];
-const picked = Array.isArray(rec.maPicked) ? rec.maPicked : [];
+const picked = (rec.maStatus === 'answered' && Array.isArray(rec.maPicked)) ? rec.maPicked : [];
 let optsHtml = '';
 if (opts.length) {
 optsHtml = '<div class="mqa-opts">' + opts.map(function (o, i) {
@@ -9364,17 +9365,90 @@ const defs = window.getInteractPool
 const say = window.pickAskCardReply ? window.pickAskCardReply(defs) : defs[Math.floor(Math.random() * defs.length)];
 return { text: say, picked: [] };
 }
+function meAskWaitMs() {
+return 5000 + Math.floor(Math.random() * (900000 - 5000 + 1)); // [5000, 900000]
+}
+var meAskTimers = null; // cid|ts -> timer（同一张卡只排一次；var 提升，早于本段执行的调用也不会 TDZ）
+function meAskTimerMap() { if (!meAskTimers) meAskTimers = {}; return meAskTimers; }
+function meAskFindIdx(recTs) {
+for (let k = msgs.length - 1; k >= 0; k--) {
+const r = msgs[k];
+if (r && r.special === 'me-ask' && r.ts === recTs) return k;
+}
+return -1;
+}
+function meAskDeliverAnswer(recTs, answerText, questionText) {
+const idx = meAskFindIdx(recTs);
+const rec = idx >= 0 ? msgs[idx] : null;
+if (!rec || rec.maStatus === 'answered') return;
+const say = answerText || rec.maAnswer || '';
+rec.maStatus = 'answered';
+if (say) rec.maAnswer = say;
+saveMsgs();
+saveMsgsNow(); // 回答即落盘（同 #489 先例）
+const el = body.querySelector('.msg[data-idx="' + idx + '"]');
+if (el) meAskPaint(el.querySelector('.msg-bubble'), rec);
+if (say) addInTyped(say);
+try {
+const list = JSON.parse(store.get('invite-ask-history') || '[]');
+if (!list.some(function (x) { return x && x.ts === recTs; })) {
+list.unshift({ type: 'ask', q: questionText || rec.maText || rec.text || '', a: say, ts: recTs });
+if (list.length > 200) list.length = 200;
+store.set('invite-ask-history', JSON.stringify(list));
+}
+} catch (err) {}
+if (window.renderAskRecords) window.renderAskRecords();
+}
+function meAskSchedule(recTs, waitMs, answerText, questionText) {
+if (!recTs) return;
+const myCid = window.__activeCid || 'default';
+const key = String(myCid) + '|' + recTs;
+const map = meAskTimerMap();
+if (map[key]) return;
+map[key] = setTimeout(function () {
+delete map[key];
+if ((window.__activeCid || 'default') !== myCid) {
+window.chatDeskCardReply(myCid, 'me-ask', recTs, 'maStatus', function (rec) {
+rec.maStatus = 'answered';
+if (answerText) rec.maAnswer = answerText;
+}, answerText ? [{ side: 'in', text: answerText }] : [], function () {
+meAskDeliverAnswer(recTs, answerText, questionText);
+});
+try { window.chatDeskHistPush(myCid, { type: 'ask', q: questionText, a: answerText, ts: recTs }); } catch (err) {}
+return;
+}
+meAskDeliverAnswer(recTs, answerText, questionText);
+}, Math.max(0, Number(waitMs) || 0));
+}
+function meAskResumePending() {
+try {
+if (!msgs || !msgs.length) return null;
+const now = Date.now();
+let late = 0;
+for (let i = 0; i < msgs.length; i++) {
+const r = msgs[i];
+if (!r || r.special !== 'me-ask' || r.maStatus === 'answered') continue;
+if (!r.maAnswer) continue;
+const due = Number(r.maDueAt) || 0;
+let wait = due > now ? (due - now) : 0;
+if (wait === 0) wait = 600 + (late++) * 500;
+meAskSchedule(r.ts, wait, r.maAnswer, r.maText || r.text || '');
+}
+} catch (e) {}
+return null;
+}
+window.meAskResumePending = meAskResumePending;
 function meAskSend() {
 const got = meAskCollect();
 if (got.err) { toast(got.err); return; }
 const qs = got.qs;
 const answers = qs.map(meAskPickAnswer);
+const waits = qs.map(meAskWaitMs).sort(function (a, b) { return a - b; });
 closeMeAskComposer();
-const myCid = window.__activeCid || 'default';
-const sameCid = function () { return (window.__activeCid || 'default') === myCid; };
 const baseTs = Date.now();
 const tss = [];
 qs.forEach(function (q, i) {
+const ans = answers[i] || { text: '', picked: [] };
 const rec = addRec({
 side: 'out',
 text: q.text,
@@ -9383,59 +9457,18 @@ maType: q.type,
 maText: q.text,
 maOptions: q.options,
 maStatus: 'pending',
+maAnswer: ans.text, // 答案当场定好并存卡：刷新后靠它续上，不再重新抽
+maPicked: ans.picked || [],
+maDueAt: baseTs + waits[i],
 ts: baseTs + i,
 dedupExempt: true
 });
 tss.push(rec && rec.ts ? rec.ts : 0);
 });
 if (!tss.length) return;
-const thinkMs = askThinkSecsLoad() * 1000;
 qs.forEach(function (q, i) {
-const recTs = tss[i];
-const ans = answers[i];
-if (!recTs || !ans) return;
-setTimeout(function () {
-const locate = function () {
-for (let k = msgs.length - 1; k >= 0; k--) {
-const r = msgs[k];
-if (r && r.special === 'me-ask' && r.ts === recTs) return k;
-}
-return -1;
-};
-function applyMeAskAnswer() {
-const idx = locate();
-const rec = idx >= 0 ? msgs[idx] : null;
-if (rec) {
-rec.maStatus = 'answered';
-rec.maAnswer = ans.text;
-rec.maPicked = ans.picked || [];
-saveMsgs();
-saveMsgsNow(); // 回答即落盘（同 #489 先例）
-const el = body.querySelector('.msg[data-idx="' + idx + '"]');
-if (el) meAskPaint(el.querySelector('.msg-bubble'), rec);
-}
-addInTyped(ans.text);
-try {
-const list = JSON.parse(store.get('invite-ask-history') || '[]');
-if (!list.some(function (x) { return x && x.ts === recTs; })) {
-list.unshift({ type: 'ask', q: q.text, a: ans.text, ts: recTs });
-if (list.length > 200) list.length = 200;
-store.set('invite-ask-history', JSON.stringify(list));
-}
-} catch (err) {}
-if (window.renderAskRecords) window.renderAskRecords();
-}
-if (!sameCid()) {
-window.chatDeskCardReply(myCid, 'me-ask', recTs, 'maStatus', function (rec) {
-rec.maStatus = 'answered';
-rec.maAnswer = ans.text;
-rec.maPicked = ans.picked || [];
-}, [{ side: 'in', text: ans.text }], applyMeAskAnswer);
-try { window.chatDeskHistPush(myCid, { type: 'ask', q: q.text, a: ans.text, ts: recTs }); } catch (err) {}
-return;
-}
-applyMeAskAnswer();
-}, thinkMs + i * 1200);
+if (!tss[i]) return;
+meAskSchedule(tss[i], waits[i], answers[i] ? answers[i].text : '', q.text);
 });
 }
 if (meAskListEl) {

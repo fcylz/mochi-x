@@ -2296,6 +2296,9 @@ try { if (window.activePrefix() === myPrefix && window.idbSet) persistChatHistor
 }
 // v3.26.x：读库完成后调度后台分批归一化（幂等，仅对当前联系跑一次）
 scheduleDeferredNormalization();
+// 我发起的提问卡（special:'me-ask'）等待最长 900 秒：权威落定后把「答案已存、还没到点」的
+// 那些按剩余时间重新排上（刷新/杀进程/切桌面回来都不会让卡片永远停在「等待对方的回答…」）
+try { meAskResumePending(); } catch (e) {}
 // #722：热片渲染完成后稍候推进头部冷块后台取回（getChatMsgs 随时可给全量；用户极快
 // 上滑到顶时 loadOlderIncremental 也会主动触发）
 try { setTimeout(chatColdEnsureHydrated, 2500); } catch (e) {}
@@ -5958,7 +5961,9 @@ const ME_ASK_TYPE_LABEL = { single: '单选', judge: '判断', multi: '多选', 
 function meAskTypeLabel(t) { return ME_ASK_TYPE_LABEL[t] || '单选'; }
 function meAskCardHtml(rec) {
 const opts = Array.isArray(rec.maOptions) ? rec.maOptions : [];
-const picked = Array.isArray(rec.maPicked) ? rec.maPicked : [];
+// 选项点亮只认「已作答」态：答案与选中下标在发送时就已经存进记录（供刷新后续答），
+// 若这里不看 maStatus，等待中的卡会提前把答案的选项点亮。
+const picked = (rec.maStatus === 'answered' && Array.isArray(rec.maPicked)) ? rec.maPicked : [];
 let optsHtml = '';
 if (opts.length) {
 optsHtml = '<div class="mqa-opts">' + opts.map(function (o, i) {
@@ -11982,6 +11987,8 @@ applyInviteResult();
 // 开放回答无选项；「＋ 添加问题」满 5 题置灰；
 // 底部提示「按顺序排列，填写后一次发送。」；发出一题一张我方卡（special:'me-ask'），
 // 卡上写「对方的回答：X」，同时 TA 另发一条普通气泡把 X 说出来（截图1 的呈现）。
+// 作答时机（用户要求「等待TA的回答，TA回答的时间最少5秒，最多900秒」）：每题独立随机
+// 5~900 秒、按题号升序落地；答案与约定时刻在发送当下就写进卡片，刷新/切桌面回来能续上。
 // 落库/落盘/提问记录/跨桌面补投递全部沿用 submitChatAsk 的既有链路，不新开写盘路径。
 const ME_ASK_MAX_Q = 5;
 const ME_ASK_MAX_OPT = 8;
@@ -12130,19 +12137,104 @@ const defs = window.getInteractPool
 const say = window.pickAskCardReply ? window.pickAskCardReply(defs) : defs[Math.floor(Math.random() * defs.length)];
 return { text: say, picked: [] };
 }
+// ===== 作答时序（用户口径：最少 5 秒、最多 900 秒）=====
+// 每题独立随机一个等待时长，排序后按题号落地——保证「先问的先答」，不会后发先答。
+// 答案（maAnswer/maPicked）与约定时刻（maDueAt）在发送当下就写进卡片：等待最长 15 分钟，
+// 中途刷新或切桌面回来，由 meAskResumePending 按剩余时间把还没到点的作答续上。
+function meAskWaitMs() {
+return 5000 + Math.floor(Math.random() * (900000 - 5000 + 1)); // [5000, 900000]
+}
+var meAskTimers = null; // cid|ts -> timer（同一张卡只排一次；var 提升，早于本段执行的调用也不会 TDZ）
+function meAskTimerMap() { if (!meAskTimers) meAskTimers = {}; return meAskTimers; }
+function meAskFindIdx(recTs) {
+for (let k = msgs.length - 1; k >= 0; k--) {
+const r = msgs[k];
+if (r && r.special === 'me-ask' && r.ts === recTs) return k;
+}
+return -1;
+}
+// 落地只此一处：定时器到点 / 刷新后恢复 / 跨桌面补投递回来后都走它。
+// 幂等——已 answered 直接返回（定时器与恢复路径可能都到）；卡片已被删除则什么都不做。
+function meAskDeliverAnswer(recTs, answerText, questionText) {
+const idx = meAskFindIdx(recTs);
+const rec = idx >= 0 ? msgs[idx] : null;
+if (!rec || rec.maStatus === 'answered') return;
+const say = answerText || rec.maAnswer || '';
+rec.maStatus = 'answered';
+if (say) rec.maAnswer = say;
+saveMsgs();
+saveMsgsNow(); // 回答即落盘（同 #489 先例）
+const el = body.querySelector('.msg[data-idx="' + idx + '"]');
+if (el) meAskPaint(el.querySelector('.msg-bubble'), rec);
+if (say) addInTyped(say);
+try {
+const list = JSON.parse(store.get('invite-ask-history') || '[]');
+// 按 ts 去重——跨桌面补投递路径可能已记过同一条
+if (!list.some(function (x) { return x && x.ts === recTs; })) {
+list.unshift({ type: 'ask', q: questionText || rec.maText || rec.text || '', a: say, ts: recTs });
+if (list.length > 200) list.length = 200;
+store.set('invite-ask-history', JSON.stringify(list));
+}
+} catch (err) {}
+if (window.renderAskRecords) window.renderAskRecords();
+}
+// 排一次落地。答案/题面在「排的时候」就抓下来——到点时用户可能已在别的桌面，那时 msgs
+// 里根本没有这张卡（#489：延迟路径不许回头读当前桌面的数据）。
+function meAskSchedule(recTs, waitMs, answerText, questionText) {
+if (!recTs) return;
+const myCid = window.__activeCid || 'default';
+const key = String(myCid) + '|' + recTs;
+const map = meAskTimerMap();
+if (map[key]) return;
+map[key] = setTimeout(function () {
+delete map[key];
+if ((window.__activeCid || 'default') !== myCid) {
+// 已切到别的桌面：卡片留在发送时的桌面，按 ts 补投递（原桌面不在屏上，不补气泡）
+window.chatDeskCardReply(myCid, 'me-ask', recTs, 'maStatus', function (rec) {
+rec.maStatus = 'answered';
+if (answerText) rec.maAnswer = answerText;
+}, answerText ? [{ side: 'in', text: answerText }] : [], function () {
+meAskDeliverAnswer(recTs, answerText, questionText);
+});
+try { window.chatDeskHistPush(myCid, { type: 'ask', q: questionText, a: answerText, ts: recTs }); } catch (err) {}
+return;
+}
+meAskDeliverAnswer(recTs, answerText, questionText);
+}, Math.max(0, Number(waitMs) || 0));
+}
+// 刷新 / 切桌面回来续上还没到点的作答：只认「答案已存在但还没答」的卡（旧卡没存答案就不动，
+// 不凭空编）；已经过了约定时刻的按先后错开 0.6s 落地，免得一屏几条同时蹦出来。
+function meAskResumePending() {
+try {
+if (!msgs || !msgs.length) return null;
+const now = Date.now();
+let late = 0;
+for (let i = 0; i < msgs.length; i++) {
+const r = msgs[i];
+if (!r || r.special !== 'me-ask' || r.maStatus === 'answered') continue;
+if (!r.maAnswer) continue;
+const due = Number(r.maDueAt) || 0;
+let wait = due > now ? (due - now) : 0;
+if (wait === 0) wait = 600 + (late++) * 500;
+meAskSchedule(r.ts, wait, r.maAnswer, r.maText || r.text || '');
+}
+} catch (e) {}
+return null;
+}
+window.meAskResumePending = meAskResumePending;
 // 发送：按题号一次性落 N 张卡（ts 逐毫秒递增，避免同毫秒被 #776 身份闸当成克隆），
-// 随后按 askThinkSecsLoad() 的节奏逐题作答（第 i 题再顺延 1.2s，读起来是「一题一题答」）。
+// 随后按上面抽好的随机等待逐题作答。
 function meAskSend() {
 const got = meAskCollect();
 if (got.err) { toast(got.err); return; }
 const qs = got.qs;
 const answers = qs.map(meAskPickAnswer);
+const waits = qs.map(meAskWaitMs).sort(function (a, b) { return a - b; });
 closeMeAskComposer();
-const myCid = window.__activeCid || 'default';
-const sameCid = function () { return (window.__activeCid || 'default') === myCid; };
 const baseTs = Date.now();
 const tss = [];
 qs.forEach(function (q, i) {
+const ans = answers[i] || { text: '', picked: [] };
 // dedupExempt：同一次手势连发的多张卡不参与 800ms 双派发闩门（题面可以完全相同）
 const rec = addRec({
 side: 'out',
@@ -12152,61 +12244,18 @@ maType: q.type,
 maText: q.text,
 maOptions: q.options,
 maStatus: 'pending',
+maAnswer: ans.text, // 答案当场定好并存卡：刷新后靠它续上，不再重新抽
+maPicked: ans.picked || [],
+maDueAt: baseTs + waits[i],
 ts: baseTs + i,
 dedupExempt: true
 });
 tss.push(rec && rec.ts ? rec.ts : 0);
 });
 if (!tss.length) return;
-const thinkMs = askThinkSecsLoad() * 1000;
 qs.forEach(function (q, i) {
-const recTs = tss[i];
-const ans = answers[i];
-if (!recTs || !ans) return;
-setTimeout(function () {
-const locate = function () {
-for (let k = msgs.length - 1; k >= 0; k--) {
-const r = msgs[k];
-if (r && r.special === 'me-ask' && r.ts === recTs) return k;
-}
-return -1;
-};
-function applyMeAskAnswer() {
-const idx = locate();
-const rec = idx >= 0 ? msgs[idx] : null;
-if (rec) {
-rec.maStatus = 'answered';
-rec.maAnswer = ans.text;
-rec.maPicked = ans.picked || [];
-saveMsgs();
-saveMsgsNow(); // 回答即落盘（同 #489 先例）
-const el = body.querySelector('.msg[data-idx="' + idx + '"]');
-if (el) meAskPaint(el.querySelector('.msg-bubble'), rec);
-}
-addInTyped(ans.text);
-try {
-const list = JSON.parse(store.get('invite-ask-history') || '[]');
-// 按 ts 去重——跨桌面补投递路径可能已记过同一条
-if (!list.some(function (x) { return x && x.ts === recTs; })) {
-list.unshift({ type: 'ask', q: q.text, a: ans.text, ts: recTs });
-if (list.length > 200) list.length = 200;
-store.set('invite-ask-history', JSON.stringify(list));
-}
-} catch (err) {}
-if (window.renderAskRecords) window.renderAskRecords();
-}
-if (!sameCid()) {
-// 已切到别的桌面：卡片留在发送时的桌面，按 ts 补投递（不回气泡——原桌面不在屏上）
-window.chatDeskCardReply(myCid, 'me-ask', recTs, 'maStatus', function (rec) {
-rec.maStatus = 'answered';
-rec.maAnswer = ans.text;
-rec.maPicked = ans.picked || [];
-}, [{ side: 'in', text: ans.text }], applyMeAskAnswer);
-try { window.chatDeskHistPush(myCid, { type: 'ask', q: q.text, a: ans.text, ts: recTs }); } catch (err) {}
-return;
-}
-applyMeAskAnswer();
-}, thinkMs + i * 1200);
+if (!tss[i]) return;
+meAskSchedule(tss[i], waits[i], answers[i] ? answers[i].text : '', q.text);
 });
 }
 // 弹窗交互：题型 chips / 添加选项 / 删除本题 / 添加问题 / 关闭 / 发送
