@@ -449,6 +449,9 @@ const FIX_SENTINELS = [
   // 用户口径「TA回答的时间最少5秒，最多900秒」：等待最长 15 分钟，必须能跨刷新/切桌面续答，
   // 否则卡片永远停在「等待对方的回答…」。
   { name: 'chat-mqa 长等待续答接入权威落定（删＝5~900 秒的等待在刷新或切桌面后断掉，卡片永久停在等待态）', file: 'js/chat.js', needle: 'try { meAskResumePending(); } catch (e) {}' },
+  // 真机实测踩到：addRec 返回的是渲染出来的 DOM 元素，按 rec.ts 取到 undefined 会让调度被
+  // `if (!tss[i]) return;` 静默跳过——卡永远「等待对方的回答…」。ts 必须用发送时自算的 baseTs + i。
+  { name: 'chat-mqa 作答定时器用自算 ts（改回 addRec 返回值的 ts＝undefined，作答永不触发）', file: 'js/chat.js', needle: 'meAskSchedule(baseTs + i' },
   // ==== 2026-10-16 #1567（作者直派「点【折叠公告】后每次重开网站都保存这个状态，不用重复点折叠/展开」＋折叠视图只留
   //   「免费·署名·防倒卖」「使用前提」「免责声明」三张卡与品牌卡）:折叠偏好落 xy-home-v2:splash-folded 根键（按设备、
   //   不随联系人），开屏按 ageOk 回填（声明改版需重新勾选时保持全文展开）；折叠时收起顶卡/公告已精简条/备份/

@@ -12232,11 +12232,12 @@ const answers = qs.map(meAskPickAnswer);
 const waits = qs.map(meAskWaitMs).sort(function (a, b) { return a - b; });
 closeMeAskComposer();
 const baseTs = Date.now();
-const tss = [];
 qs.forEach(function (q, i) {
 const ans = answers[i] || { text: '', picked: [] };
 // dedupExempt：同一次手势连发的多张卡不参与 800ms 双派发闩门（题面可以完全相同）
-const rec = addRec({
+// ⚠ addRec 返回的是渲染出来的 DOM 元素（不是记录对象），ts 必须用这里自己算好的
+// baseTs + i——早先按 rec.ts 取会拿到 undefined，调度被静默跳过，卡片永远停在等待态。
+addRec({
 side: 'out',
 text: q.text,
 special: 'me-ask',
@@ -12250,12 +12251,9 @@ maDueAt: baseTs + waits[i],
 ts: baseTs + i,
 dedupExempt: true
 });
-tss.push(rec && rec.ts ? rec.ts : 0);
 });
-if (!tss.length) return;
 qs.forEach(function (q, i) {
-if (!tss[i]) return;
-meAskSchedule(tss[i], waits[i], answers[i] ? answers[i].text : '', q.text);
+meAskSchedule(baseTs + i, waits[i], answers[i] ? answers[i].text : '', q.text);
 });
 }
 // 弹窗交互：题型 chips / 添加选项 / 删除本题 / 添加问题 / 关闭 / 发送

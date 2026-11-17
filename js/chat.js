@@ -9446,10 +9446,9 @@ const answers = qs.map(meAskPickAnswer);
 const waits = qs.map(meAskWaitMs).sort(function (a, b) { return a - b; });
 closeMeAskComposer();
 const baseTs = Date.now();
-const tss = [];
 qs.forEach(function (q, i) {
 const ans = answers[i] || { text: '', picked: [] };
-const rec = addRec({
+addRec({
 side: 'out',
 text: q.text,
 special: 'me-ask',
@@ -9463,12 +9462,9 @@ maDueAt: baseTs + waits[i],
 ts: baseTs + i,
 dedupExempt: true
 });
-tss.push(rec && rec.ts ? rec.ts : 0);
 });
-if (!tss.length) return;
 qs.forEach(function (q, i) {
-if (!tss[i]) return;
-meAskSchedule(tss[i], waits[i], answers[i] ? answers[i].text : '', q.text);
+meAskSchedule(baseTs + i, waits[i], answers[i] ? answers[i].text : '', q.text);
 });
 }
 if (meAskListEl) {
